@@ -4,5 +4,7 @@ data class Ingredient(
     val id: String,
     val name: String,
     val defaultUnit: MeasurementUnit,
-    val estimatedPrice: Double
+    val estimatedPriceCentavos: Long,
+    val priceQuantity: Double,
+    val priceUnit: MeasurementUnit
 )
