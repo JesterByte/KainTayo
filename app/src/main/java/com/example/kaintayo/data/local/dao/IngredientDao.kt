@@ -21,6 +21,9 @@ interface IngredientDao {
     @Upsert
     suspend fun insertIngredient(ingredient: IngredientEntity)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIngredientIfAbsent(ingredient: IngredientEntity): Long
+
     @Upsert
     suspend fun insertIngredients(ingredients: List<IngredientEntity>)
 

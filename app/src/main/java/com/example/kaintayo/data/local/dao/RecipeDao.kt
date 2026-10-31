@@ -26,6 +26,9 @@ interface RecipeDao {
     @Upsert
     suspend fun insertRecipe(recipe: RecipeEntity)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertRecipeIfAbsent(recipe: RecipeEntity): Long
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRecipeIngredients(
         ingredients: List<RecipeIngredientEntity>
@@ -47,6 +50,18 @@ interface RecipeDao {
         deleteRecipeIngredients(recipe.id)
 
         if (ingredients.isNotEmpty()) {
+            insertRecipeIngredients(ingredients)
+        }
+    }
+
+    @Transaction
+    suspend fun insertRecipeWithIngredientsIfAbsent(
+        recipe: RecipeEntity,
+        ingredients: List<RecipeIngredientEntity>
+    ) {
+        val insertedId = insertRecipeIfAbsent(recipe)
+
+        if (insertedId != -1L && ingredients.isNotEmpty()) {
             insertRecipeIngredients(ingredients)
         }
     }

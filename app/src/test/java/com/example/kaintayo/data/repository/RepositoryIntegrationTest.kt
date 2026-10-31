@@ -21,6 +21,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
+import com.example.kaintayo.data.catalog.FilipinoCatalogSeeder
+import com.example.kaintayo.data.catalog.FilipinoIngredientCatalog
+import com.example.kaintayo.data.catalog.FilipinoRecipeCatalog
 
 @RunWith(RobolectricTestRunner::class)
 class RepositoryIntegrationTest {
@@ -30,6 +33,8 @@ class RepositoryIntegrationTest {
     private lateinit var ingredientRepository: IngredientRepositoryImpl
     private lateinit var recipeRepository: RecipeRepositoryImpl
     private lateinit var mealPlanRepository: MealPlanRepositoryImpl
+
+    private lateinit var catalogSeeder: FilipinoCatalogSeeder
 
     @Before
     fun setup() {
@@ -50,6 +55,11 @@ class RepositoryIntegrationTest {
 
         mealPlanRepository = MealPlanRepositoryImpl(
             database.mealPlanDao()
+        )
+
+        catalogSeeder = FilipinoCatalogSeeder(
+            database.ingredientDao(),
+            database.recipeDao()
         )
     }
 
@@ -273,5 +283,96 @@ class RepositoryIntegrationTest {
 
         assertEquals(1, savedMeals.size)
         assertEquals(recipe.id, savedMeals.first().recipeId)
+    }
+
+    @Test
+    fun catalogSeederInsertsAllCatalogItems() = runBlocking {
+        catalogSeeder.seed()
+
+        val ingredients = database.ingredientDao()
+            .getAllIngredients()
+            .first()
+
+        val recipes = database.recipeDao()
+            .getAllRecipes()
+            .first()
+
+        assertEquals(FilipinoIngredientCatalog.ingredients.size, ingredients.size)
+        assertEquals(FilipinoRecipeCatalog.recipes.size, recipes.size)
+
+        assertEquals(40, ingredients.size)
+        assertEquals(30, recipes.size)
+    }
+
+    @Test
+    fun runningCatalogSeederTwiceDoesNotCreateDuplicates() = runBlocking {
+        catalogSeeder.seed()
+        catalogSeeder.seed()
+
+        val ingredients = database.ingredientDao()
+            .getAllIngredients()
+            .first()
+
+        val recipes = database.recipeDao()
+            .getAllRecipes()
+            .first()
+
+        assertEquals(40, ingredients.size)
+        assertEquals(30, recipes.size)
+    }
+
+    @Test
+    fun catalogSeederPreservesEditedIngredientPrices() = runBlocking {
+        catalogSeeder.seed()
+
+        val originalChicken = ingredientRepository
+            .getIngredientById("chicken")
+            ?: throw AssertionError("Chicken ingredient was not seeded")
+
+        val editedPrice = originalChicken.copy(
+            estimatedPriceCentavos = 25000
+        )
+
+        ingredientRepository.saveIngredient(editedPrice)
+
+        catalogSeeder.seed()
+
+        val savedChicken = ingredientRepository
+            .getIngredientById("chicken")
+
+        assertEquals(
+            25000L,
+            savedChicken?.estimatedPriceCentavos
+        )
+    }
+
+    @Test
+    fun catalogSeederPreservesEditedRecipesAndTheirIngredients() = runBlocking {
+        catalogSeeder.seed()
+
+        val originalRecipe = recipeRepository
+            .getRecipeById("tinolang-manok")
+            ?: throw AssertionError("Tinolang Manok was not seeded")
+
+        val editedRecipe = originalRecipe.copy(
+            description = "My family's updated Tinolang Manok recipe"
+        )
+
+        recipeRepository.saveRecipe(editedRecipe)
+
+        catalogSeeder.seed()
+
+        val savedRecipe = recipeRepository
+            .getRecipeById("tinolang-manok")
+
+        assertEquals(
+            "My family's updated Tinolang Manok recipe",
+            savedRecipe?.description
+        )
+
+        assertEquals(
+            originalRecipe.ingredients,
+            savedRecipe?.ingredients
+        )
     }
 }
