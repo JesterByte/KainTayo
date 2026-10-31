@@ -49,4 +49,6 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    testImplementation(kotlin("test"))
+    testImplementation("junit:junit:4.13.2")
 }
