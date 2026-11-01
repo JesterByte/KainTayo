@@ -75,4 +75,44 @@ class PaydayCycleCalculatorTest {
             cycle.endDate
         )
     }
+
+    @Test
+    fun november14_returnsOctober30ToNovember14() {
+        val cycle = PaydayCycleCalculator.getCurrentCycle(
+            LocalDate.of(2026, 11, 14)
+        )
+
+        assertEquals(LocalDate.of(2026, 10, 30), cycle.startDate)
+        assertEquals(LocalDate.of(2026, 11, 14), cycle.endDate)
+    }
+
+    @Test
+    fun november15_returnsNovember15ToNovember29() {
+        val cycle = PaydayCycleCalculator.getCurrentCycle(
+            LocalDate.of(2026, 11, 15)
+        )
+
+        assertEquals(LocalDate.of(2026, 11, 15), cycle.startDate)
+        assertEquals(LocalDate.of(2026, 11, 29), cycle.endDate)
+    }
+
+    @Test
+    fun november30_returnsNovember30ToDecember14() {
+        val cycle = PaydayCycleCalculator.getCurrentCycle(
+            LocalDate.of(2026, 11, 30)
+        )
+
+        assertEquals(LocalDate.of(2026, 11, 30), cycle.startDate)
+        assertEquals(LocalDate.of(2026, 12, 14), cycle.endDate)
+    }
+
+    @Test
+    fun leapYearFebruary29_returnsFebruary29ToMarch14() {
+        val cycle = PaydayCycleCalculator.getCurrentCycle(
+            LocalDate.of(2028, 2, 29)
+        )
+
+        assertEquals(LocalDate.of(2028, 2, 29), cycle.startDate)
+        assertEquals(LocalDate.of(2028, 3, 14), cycle.endDate)
+    }
 }
