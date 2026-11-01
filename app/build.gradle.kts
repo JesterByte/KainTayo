@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.kaintayo"
+    namespace = "com.jesterbyte.kaintayo"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.kaintayo"
+        applicationId = "com.jesterbyte.kaintayo"
         minSdk = 26
         targetSdk = 37
         versionCode = 1
