@@ -35,6 +35,7 @@ import androidx.tv.material3.Text
 import com.example.kaintayo.KainTayoAppContainer
 import com.example.kaintayo.core.time.PaydayCycleCalculator
 import com.example.kaintayo.domain.usecase.MealPlanGenerationStatus
+import com.example.kaintayo.feature.mealplan.MealPlanScreen
 import com.example.kaintayo.ui.theme.KainAccent
 import com.example.kaintayo.ui.theme.KainBackground
 import com.example.kaintayo.ui.theme.KainGreen
@@ -56,6 +57,10 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
     val coroutineScope = rememberCoroutineScope()
 
     var showBudgetSetup by remember {
+        mutableStateOf(false)
+    }
+
+    var showMealPlan by remember {
         mutableStateOf(false)
     }
 
@@ -85,6 +90,17 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
     val cycleRange =
         "${cycle.startDate.format(dateFormatter)} – " +
                 cycle.endDate.format(dateFormatter)
+
+    if (showMealPlan) {
+        MealPlanScreen(
+            appContainer = appContainer,
+            onBack = {
+                showMealPlan = false
+            }
+        )
+
+        return
+    }
 
     if (showBudgetSetup) {
         BudgetSetupScreen(
@@ -259,11 +275,7 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
                     modifier = Modifier.weight(1f),
                     highlighted = true
                 ) {
-                    Toast.makeText(
-                        context,
-                        "Meal Plan coming soon!",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    showMealPlan = true
                 }
 
                 DashboardCard(
