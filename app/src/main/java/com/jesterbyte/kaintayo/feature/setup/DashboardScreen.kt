@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -13,9 +12,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -62,14 +62,57 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.util.Locale
 
 private enum class Destination { HOME, MEAL_PLAN, BUDGET, GROCERIES }
 
-private val HeaderDateFormatter = DateTimeFormatter.ofPattern("EEEE · MMMM d", Locale.ENGLISH)
-private val RangeDateFormatter = DateTimeFormatter.ofPattern("MMMM d", Locale.ENGLISH)
+private data class StepInfo(
+    val number: Int,
+    val destination: Destination,
+    val symbol: String,
+    val title: String,
+    val description: String
+)
+
+// Order matters: the meal plan is created in Step 1, so Steps 2 and 3 depend on it
+private val Steps = listOf(
+    StepInfo(
+        number = 1,
+        destination = Destination.BUDGET,
+        symbol = "💰",
+        title = "I-set ang Budget",
+        description = "Ilagay ang budget at kung ilan kayong kakain."
+    ),
+    StepInfo(
+        number = 2,
+        destination = Destination.GROCERIES,
+        symbol = "🛒",
+        title = "Tingnan ang Grocery List",
+        description = "Alamin kung ano ang bibilhin sa palengke."
+    ),
+    StepInfo(
+        number = 3,
+        destination = Destination.MEAL_PLAN,
+        symbol = "📅",
+        title = "Tingnan ang Meal Plan",
+        description = "Alamin ang ulam sa almusal, tanghalian, at hapunan."
+    )
+)
+
+private val FilipinoDays = listOf(
+    "Lunes", "Martes", "Miyerkules", "Huwebes", "Biyernes", "Sabado", "Linggo"
+)
+
+private val FilipinoMonths = listOf(
+    "Enero", "Pebrero", "Marso", "Abril", "Mayo", "Hunyo",
+    "Hulyo", "Agosto", "Setyembre", "Oktubre", "Nobyembre", "Disyembre"
+)
+
+private fun monthDay(date: LocalDate): String =
+    "${FilipinoMonths[date.monthValue - 1]} ${date.dayOfMonth}"
+
+private fun fullDate(date: LocalDate): String =
+    "${FilipinoDays[date.dayOfWeek.value - 1]} · ${monthDay(date)}"
 
 @Composable
 fun DashboardScreen(appContainer: KainTayoAppContainer) {
@@ -77,7 +120,7 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
     val coroutineScope = rememberCoroutineScope()
 
     var destination by rememberSaveable { mutableStateOf(Destination.HOME) }
-    // Remembers which card opened the last screen, so focus returns to it
+    // Remembers which step was opened last, so the home screen can suggest what's next
     var lastVisited by rememberSaveable { mutableStateOf(Destination.MEAL_PLAN) }
 
     var generationMessage by remember { mutableStateOf<String?>(null) }
@@ -86,9 +129,10 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
     val today = remember { LocalDate.now() }
     val cycle = remember(today) { PaydayCycleCalculator.getCurrentCycle(today) }
 
-    var plannedMeals by remember { mutableStateOf<List<PlannedMeal>>(emptyList()) }
+    // null = still loading
+    var plannedMeals by remember { mutableStateOf<List<PlannedMeal>?>(null) }
 
-    // Keeps "Today's menu" fresh, including right after a new plan is generated
+    // Keeps the home screen fresh, including right after a new plan is generated
     LaunchedEffect(cycle) {
         appContainer.mealPlanRepository
             .getPlannedMealsForPeriod(
@@ -98,8 +142,10 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
             .collectLatest { plannedMeals = it }
     }
 
+    val hasPlan: Boolean? = plannedMeals?.isNotEmpty()
+
     val todaysMeals = remember(plannedMeals, today) {
-        plannedMeals
+        plannedMeals.orEmpty()
             .filter { it.date == today }
             .sortedBy { it.mealType.ordinal }
     }
@@ -132,7 +178,7 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
                     appContainer.preferences.saveHouseholdSize(householdSize)
 
                     isGenerating = true
-                    generationMessage = "Generating your meal plan..."
+                    generationMessage = "Ginagawa na ang meal plan... Sandali lang po."
 
                     coroutineScope.launch {
                         try {
@@ -144,16 +190,16 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
 
                             generationMessage = when (result?.status) {
                                 MealPlanGenerationStatus.GENERATED ->
-                                    "Your meal plan was generated successfully!"
+                                    "Tapos na ang meal plan! Sunod: tingnan ang Grocery List."
 
                                 MealPlanGenerationStatus.OVER_BUDGET ->
-                                    "The estimated cost exceeds your budget."
+                                    "Lampas sa budget ang tantyang gastos. Subukang dagdagan ang budget."
 
                                 MealPlanGenerationStatus.CANNOT_GENERATE ->
-                                    "Not enough valid recipes to create a plan."
+                                    "Kulang ang mga recipe para makabuo ng plano."
 
                                 null ->
-                                    "Please check your budget and household settings."
+                                    "Pakisuri ang budget at kung ilan ang kakain."
                             }
 
                             if (result?.status == MealPlanGenerationStatus.GENERATED) {
@@ -163,7 +209,7 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
                             if (exception is CancellationException) throw exception
 
                             generationMessage =
-                                "Something went wrong while generating your plan."
+                                "May nangyaring problema. Pakisubukan ulit."
                         } finally {
                             isGenerating = false
                         }
@@ -175,6 +221,7 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
         Destination.HOME -> DashboardHome(
             today = today,
             cycle = cycle,
+            hasPlan = hasPlan,
             todaysMeals = todaysMeals,
             generationMessage = generationMessage,
             lastVisited = lastVisited,
@@ -193,6 +240,7 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
 private fun DashboardHome(
     today: LocalDate,
     cycle: PaydayCycle,
+    hasPlan: Boolean?,
     todaysMeals: List<PlannedMeal>,
     generationMessage: String?,
     lastVisited: Destination,
@@ -200,6 +248,16 @@ private fun DashboardHome(
     onOpenBudget: () -> Unit,
     onOpenGroceries: () -> Unit
 ) {
+    val planReady = hasPlan == true
+
+    // Which step to point the user to
+    val nextStep: Destination? = when {
+        !planReady -> Destination.BUDGET
+        lastVisited == Destination.BUDGET -> Destination.GROCERIES
+        lastVisited == Destination.GROCERIES -> Destination.MEAL_PLAN
+        else -> null // everything done; this is the everyday "just show me the meals" case
+    }
+
     val focusRequesters = remember {
         mapOf(
             Destination.MEAL_PLAN to FocusRequester(),
@@ -208,22 +266,31 @@ private fun DashboardHome(
         )
     }
 
-    // Start on the card you came from (Meal Plan on first launch)
-    LaunchedEffect(Unit) {
-        runCatching { focusRequesters[lastVisited]?.requestFocus() }
+    var hint by remember { mutableStateOf<String?>(null) }
+    var focusPlaced by remember { mutableStateOf(false) }
+
+    // Wait until we know if a plan exists, then focus the right step once
+    LaunchedEffect(hasPlan) {
+        if (hasPlan != null && !focusPlaced) {
+            focusPlaced = true
+            val target = nextStep ?: lastVisited
+            runCatching { focusRequesters.getValue(target).requestFocus() }
+        }
     }
 
     val totalDays = maxOf(cycle.totalDays, 1)
     val dayNumber = (ChronoUnit.DAYS.between(cycle.startDate, today).toInt() + 1)
         .coerceIn(1, totalDays.toInt())
-    val cycleRange = "${cycle.startDate.format(RangeDateFormatter)} – " +
-            cycle.endDate.format(RangeDateFormatter)
+    val cycleRange = "${monthDay(cycle.startDate)} – ${monthDay(cycle.endDate)}"
 
     val greeting = when (LocalTime.now().hour) {
-        in 5..11 -> "Good morning"
-        in 12..17 -> "Good afternoon"
-        else -> "Good evening"
+        in 5..11 -> "Magandang umaga po"
+        in 12..13 -> "Magandang tanghali po"
+        in 14..17 -> "Magandang hapon po"
+        else -> "Magandang gabi po"
     }
+
+    val message = hint ?: generationMessage
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -233,8 +300,8 @@ private fun DashboardHome(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 48.dp, vertical = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 48.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Header
             Row(
@@ -256,32 +323,68 @@ private fun DashboardHome(
                 }
 
                 Text(
-                    text = today.format(HeaderDateFormatter),
+                    text = fullDate(today),
                     color = KainTextSecondary,
-                    fontSize = 14.sp
+                    fontSize = 16.sp
                 )
             }
 
-            // Greeting
+            // Greeting + instruction (also shows messages, so the layout never jumps)
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "$greeting! 👋",
                     color = KainTextPrimary,
-                    fontSize = 24.sp,
+                    fontSize = 26.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Here's where things stand today.",
-                    color = KainTextSecondary,
-                    fontSize = 15.sp
+                    text = message ?: "Sundan lang ang 3 hakbang na ito para sa ulam at grocery ngayong sweldo.",
+                    color = if (message != null) KainAccent else KainTextSecondary,
+                    fontSize = 17.sp,
+                    fontWeight = if (message != null) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
+            }
+
+            // The 3 steps
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Steps.forEach { step ->
+                    val locked = step.destination != Destination.BUDGET && !planReady
+                    val done = step.destination == Destination.BUDGET && planReady
+
+                    StepCard(
+                        step = step,
+                        locked = locked,
+                        done = done,
+                        isNext = step.destination == nextStep,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(200.dp)
+                            .focusRequester(focusRequesters.getValue(step.destination))
+                    ) {
+                        if (locked) {
+                            hint = "Gawin muna ang Step 1: I-set ang Budget para magkaroon ng meal plan."
+                        } else {
+                            hint = null
+                            when (step.destination) {
+                                Destination.BUDGET -> onOpenBudget()
+                                Destination.GROCERIES -> onOpenGroceries()
+                                else -> onOpenMealPlan()
+                            }
+                        }
+                    }
+                }
             }
 
             // Cycle progress + today's menu
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(156.dp),
+                    .height(132.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 CycleCard(
@@ -294,6 +397,7 @@ private fun DashboardHome(
                 )
 
                 TodayMenuCard(
+                    hasPlan = planReady,
                     meals = todaysMeals,
                     modifier = Modifier
                         .weight(1.4f)
@@ -301,69 +405,111 @@ private fun DashboardHome(
                 )
             }
 
-            if (generationMessage != null) {
-                Text(
-                    text = generationMessage,
-                    color = KainAccent,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+            Text(
+                text = "Gamitin ang ◀ ▶ na arrow at ang OK button ng remote.",
+                color = KainTextSecondary,
+                fontSize = 14.sp
+            )
+        }
+    }
+}
 
-            // Navigation cards
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(
-                    16.dp,
-                    Alignment.CenterHorizontally
-                )
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun StepCard(
+    step: StepInfo,
+    locked: Boolean,
+    done: Boolean,
+    isNext: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(16.dp)
+
+    val chip = when {
+        locked -> "🔒 Step 1 muna"
+        done -> "✓ Tapos na"
+        isNext && step.number == 1 -> "👉 Simulan dito"
+        isNext -> "👉 Susunod na"
+        else -> null
+    }
+
+    Card(
+        onClick = onClick,
+        modifier = modifier,
+        scale = CardDefaults.scale(focusedScale = 1.05f),
+        shape = CardDefaults.shape(shape = shape),
+        colors = CardDefaults.colors(
+            containerColor = if (done) KainGreenDark else KainSurface,
+            focusedContainerColor = KainGreen
+        ),
+        border = CardDefaults.border(
+            // The suggested next step keeps a visible outline even when not focused
+            border = if (isNext) {
+                Border(BorderStroke(2.dp, KainAccent), shape = shape)
+            } else {
+                Border.None
+            },
+            focusedBorder = Border(BorderStroke(3.dp, KainAccent), shape = shape)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                item {
-                    DashboardCard(
-                        title = "My Meal Plan",
-                        description = "View your daily meals",
-                        symbol = "📅",
-                        modifier = Modifier
-                            .width(220.dp)
-                            .focusRequester(focusRequesters.getValue(Destination.MEAL_PLAN)),
-                        highlighted = true,
-                        onClick = onOpenMealPlan
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            if (locked) KainBackground else KainAccent,
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (done) "✓" else step.number.toString(),
+                        color = if (locked) KainTextSecondary else KainBackground,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
-                item {
-                    DashboardCard(
-                        title = "Set Budget",
-                        description = "Manage your cut-off budget",
-                        symbol = "💰",
-                        modifier = Modifier
-                            .width(220.dp)
-                            .focusRequester(focusRequesters.getValue(Destination.BUDGET)),
-                        onClick = onOpenBudget
-                    )
-                }
-
-                item {
-                    DashboardCard(
-                        title = "Grocery List",
-                        description = "View your ingredients",
-                        symbol = "🛒",
-                        modifier = Modifier
-                            .width(220.dp)
-                            .focusRequester(focusRequesters.getValue(Destination.GROCERIES)),
-                        onClick = onOpenGroceries
-                    )
-                }
+                Text(text = step.symbol, fontSize = 28.sp)
             }
 
             Text(
-                text = "Use your TV remote to navigate",
-                color = KainTextSecondary,
-                fontSize = 12.sp
+                text = step.title,
+                color = if (locked) KainTextSecondary else Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = step.description,
+                color = KainTextSecondary,
+                fontSize = 15.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            if (chip != null) {
+                Text(
+                    text = chip,
+                    color = if (locked) KainTextSecondary else KainAccent,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
@@ -380,13 +526,13 @@ private fun CycleCard(
     Column(
         modifier = modifier
             .background(KainGreenDark, RoundedCornerShape(16.dp))
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
-            text = "CURRENT BUDGET CYCLE",
+            text = "BUDGET CYCLE NGAYON",
             color = KainTextSecondary,
-            fontSize = 12.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 1.sp
         )
@@ -394,7 +540,7 @@ private fun CycleCard(
         Text(
             text = cycleRange,
             color = KainTextPrimary,
-            fontSize = 24.sp,
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold
         )
 
@@ -415,9 +561,9 @@ private fun CycleCard(
         }
 
         Text(
-            text = "Day $dayNumber of $totalDays",
+            text = "Araw $dayNumber ng $totalDays",
             color = KainAccent,
-            fontSize = 13.sp,
+            fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold
         )
     }
@@ -425,19 +571,20 @@ private fun CycleCard(
 
 @Composable
 private fun TodayMenuCard(
+    hasPlan: Boolean,
     meals: List<PlannedMeal>,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
             .background(KainSurface, RoundedCornerShape(16.dp))
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
-            text = "TODAY'S MENU",
+            text = "ULAM NGAYON",
             color = KainTextSecondary,
-            fontSize = 12.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 1.sp
         )
@@ -445,15 +592,19 @@ private fun TodayMenuCard(
         if (meals.isEmpty()) {
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = "No meals planned yet",
+                text = if (hasPlan) "Walang nakaplanong ulam ngayon" else "Wala pang meal plan",
                 color = KainTextPrimary,
-                fontSize = 18.sp,
+                fontSize = 19.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Open Set Budget to generate a plan for this cycle.",
+                text = if (hasPlan) {
+                    "Buksan ang Meal Plan para makita ang ibang araw."
+                } else {
+                    "Gawin muna ang Step 1 para magkaroon ng ulam."
+                },
                 color = KainTextSecondary,
-                fontSize = 13.sp
+                fontSize = 15.sp
             )
             Spacer(modifier = Modifier.weight(1f))
         } else {
@@ -462,23 +613,23 @@ private fun TodayMenuCard(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(text = mealEmoji(type), fontSize = 18.sp)
 
                     Text(
                         text = mealLabel(type),
                         color = KainAccent,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp,
-                        modifier = Modifier.width(84.dp)
+                        modifier = Modifier.width(112.dp)
                     )
 
                     Text(
                         text = meal?.recipeName ?: "—",
                         color = if (meal != null) KainTextPrimary else KainTextSecondary,
-                        fontSize = 15.sp,
+                        fontSize = 16.sp,
                         fontWeight = if (meal != null) FontWeight.SemiBold else FontWeight.Normal,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -489,73 +640,10 @@ private fun TodayMenuCard(
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun DashboardCard(
-    title: String,
-    description: String,
-    symbol: String,
-    modifier: Modifier = Modifier,
-    highlighted: Boolean = false,
-    onClick: () -> Unit
-) {
-    Card(
-        onClick = onClick,
-        modifier = modifier.height(80.dp),
-        scale = CardDefaults.scale(focusedScale = 1.05f),
-        shape = CardDefaults.shape(
-            shape = RoundedCornerShape(12.dp)
-        ),
-        colors = CardDefaults.colors(
-            containerColor = if (highlighted) KainGreenDark else KainSurface,
-            focusedContainerColor = KainGreen
-        ),
-        border = CardDefaults.border(
-            border = Border.None,
-            focusedBorder = Border(
-                border = BorderStroke(2.dp, KainAccent),
-                shape = RoundedCornerShape(12.dp)
-            )
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = symbol,
-                fontSize = 22.sp
-            )
-
-            Column(
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = title,
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-
-                Text(
-                    text = description,
-                    color = KainTextSecondary,
-                    fontSize = 11.sp,
-                    maxLines = 1
-                )
-            }
-        }
-    }
-}
-
 private fun mealLabel(type: MealType): String = when (type) {
-    MealType.BREAKFAST -> "BREAKFAST"
-    MealType.LUNCH -> "LUNCH"
-    MealType.DINNER -> "DINNER"
+    MealType.BREAKFAST -> "ALMUSAL"
+    MealType.LUNCH -> "TANGHALIAN"
+    MealType.DINNER -> "HAPUNAN"
 }
 
 private fun mealEmoji(type: MealType): String = when (type) {

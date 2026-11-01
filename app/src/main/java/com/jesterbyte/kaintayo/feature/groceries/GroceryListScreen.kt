@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,10 +23,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -52,15 +55,20 @@ import com.jesterbyte.kaintayo.ui.theme.KainTextSecondary
 import kotlinx.coroutines.CancellationException
 import java.text.NumberFormat.getCurrencyInstance
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
-
-private val CycleDateFormatter = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
 
 private val StatusWithin = KainAccent
 private val StatusExact = Color(0xFFF2B84B)
 private val StatusOver = Color(0xFFE5534B)
+
+private val ShortFilipinoMonths = listOf(
+    "Ene", "Peb", "Mar", "Abr", "May", "Hun",
+    "Hul", "Ago", "Set", "Okt", "Nob", "Dis"
+)
+
+private fun formatShortDate(date: LocalDate): String =
+    "${ShortFilipinoMonths[date.monthValue - 1]} ${date.dayOfMonth}"
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -79,12 +87,14 @@ fun GroceryListScreen(
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    val firstItemFocus = remember { FocusRequester() }
+
     LaunchedEffect(cycle, householdSize, budgetCentavos) {
         isLoading = true
         errorMessage = null
 
         if (householdSize == null || budgetCentavos == null) {
-            errorMessage = "Set your household size and payday budget first."
+            errorMessage = "Gawin muna ang Step 1: I-set ang budget at kung ilan kayong kakain."
             isLoading = false
             return@LaunchedEffect
         }
@@ -98,16 +108,28 @@ fun GroceryListScreen(
             )
 
             if (estimate == null) {
-                errorMessage = "No grocery estimate is available. Generate a meal plan first."
+                errorMessage = "Wala pang listahan. Gumawa muna ng Meal Plan sa Step 1."
             }
         } catch (exception: CancellationException) {
             throw exception
         } catch (_: Exception) {
-            errorMessage = "Unable to calculate the grocery list. Please try again."
+            errorMessage = "Hindi makalkula ang grocery list. Pakisubukan ulit."
         } finally {
             isLoading = false
         }
     }
+
+    // When the list is ready, move the remote onto the first item so ▲ ▼ scrolls right away
+    LaunchedEffect(estimate) {
+        if (estimate != null) {
+            withFrameNanos { } // let the list lay out first
+            withFrameNanos { }
+            runCatching { firstItemFocus.requestFocus() }
+        }
+    }
+
+    val currentEstimate = estimate
+    val currentError = errorMessage
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -116,8 +138,8 @@ fun GroceryListScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 48.dp, vertical = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 48.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Header
             Row(
@@ -130,30 +152,37 @@ fun GroceryListScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Button(onClick = onBack) {
-                        Text("← Back", fontSize = 14.sp)
+                        Text("← Bumalik", fontSize = 16.sp)
                     }
-                    Text("🛒", fontSize = 28.sp)
-                    Text(
-                        text = "Grocery List",
-                        color = KainTextPrimary,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("🛒", fontSize = 30.sp)
+                    Column {
+                        Text(
+                            text = "Step 2: Grocery List",
+                            color = KainTextPrimary,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Ito ang bibilhin sa palengke o grocery para sa buong cycle.",
+                            color = KainTextSecondary,
+                            fontSize = 16.sp
+                        )
+                    }
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "${cycle.startDate.format(CycleDateFormatter)} – " +
-                                cycle.endDate.format(CycleDateFormatter),
+                        text = "${formatShortDate(cycle.startDate)} – " +
+                                formatShortDate(cycle.endDate),
                         color = KainAccent,
-                        fontSize = 14.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     if (householdSize != null) {
                         Text(
-                            text = "Shopping for $householdSize",
+                            text = "Para sa $householdSize tao",
                             color = KainTextSecondary,
-                            fontSize = 12.sp
+                            fontSize = 15.sp
                         )
                     }
                 }
@@ -162,17 +191,20 @@ fun GroceryListScreen(
             when {
                 isLoading -> {
                     Text(
-                        text = "Calculating your grocery list...",
+                        text = "Kinakalkula ang grocery list... sandali lang po.",
                         color = KainTextSecondary,
-                        fontSize = 16.sp
+                        fontSize = 18.sp
                     )
                 }
 
-                errorMessage != null -> {
-                    MessageCard(message = errorMessage!!)
+                currentError != null -> {
+                    MessageCard(
+                        message = currentError,
+                        hint = "Pindutin ang ← Bumalik para bumalik sa Dashboard."
+                    )
                 }
 
-                estimate != null -> {
+                currentEstimate != null -> {
                     // Summary stays on the left while the list scrolls on the right
                     Row(
                         modifier = Modifier
@@ -181,16 +213,23 @@ fun GroceryListScreen(
                         horizontalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
                         GrocerySummary(
-                            estimate = estimate!!,
-                            modifier = Modifier.width(340.dp)
+                            estimate = currentEstimate,
+                            modifier = Modifier.width(330.dp)
                         )
                         GroceryItems(
-                            items = estimate!!.purchaseEstimate.items,
+                            items = currentEstimate.purchaseEstimate.items,
+                            firstItemFocus = firstItemFocus,
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
                         )
                     }
+
+                    Text(
+                        text = "Tapos na dito? Pindutin ang ← Bumalik, tapos piliin ang Step 3: Meal Plan.",
+                        color = KainTextSecondary,
+                        fontSize = 15.sp
+                    )
                 }
             }
         }
@@ -205,9 +244,9 @@ private fun GrocerySummary(
     val assessment = estimate.budgetAssessment
 
     val (statusText, statusColor) = when (assessment.status) {
-        BudgetStatus.WITHIN_BUDGET -> "Within budget" to StatusWithin
-        BudgetStatus.EXACT_BUDGET -> "Exactly on budget" to StatusExact
-        BudgetStatus.OVER_BUDGET -> "Over budget" to StatusOver
+        BudgetStatus.WITHIN_BUDGET -> "✓ Pasok sa budget" to StatusWithin
+        BudgetStatus.EXACT_BUDGET -> "Eksakto sa budget" to StatusExact
+        BudgetStatus.OVER_BUDGET -> "⚠ Lampas sa budget" to StatusOver
     }
 
     val budget = assessment.budgetCentavos.toDouble()
@@ -215,18 +254,18 @@ private fun GrocerySummary(
     val fraction = if (budget > 0) (cost / budget).toFloat().coerceIn(0f, 1f) else 0f
 
     val remaining = assessment.remainingBudgetCentavos.toDouble()
-    val remainingLabel = if (remaining < 0) "Over by" else "Remaining"
+    val remainingLabel = if (remaining < 0) "Sobra ng" else "Natitira"
 
     Column(
         modifier = modifier
             .background(KainSurface, RoundedCornerShape(16.dp))
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
-            text = "ESTIMATED COST",
+            text = "TANTYANG GASTOS",
             color = KainTextSecondary,
-            fontSize = 12.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 1.sp
         )
@@ -234,7 +273,7 @@ private fun GrocerySummary(
         Text(
             text = formatPeso(assessment.estimatedCostCentavos),
             color = KainTextPrimary,
-            fontSize = 36.sp,
+            fontSize = 40.sp,
             fontWeight = FontWeight.Bold
         )
 
@@ -242,7 +281,7 @@ private fun GrocerySummary(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(8.dp)
+                .height(10.dp)
                 .background(KainBackground, RoundedCornerShape(50))
         ) {
             Box(
@@ -254,12 +293,10 @@ private fun GrocerySummary(
         }
 
         Text(
-            text = "of ${formatPeso(assessment.budgetCentavos)} budget",
+            text = "mula sa ${formatPeso(assessment.budgetCentavos)} na budget",
             color = KainTextSecondary,
-            fontSize = 13.sp
+            fontSize = 16.sp
         )
-
-        Spacer(modifier = Modifier.height(4.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -269,12 +306,12 @@ private fun GrocerySummary(
             Text(
                 text = remainingLabel,
                 color = KainTextSecondary,
-                fontSize = 14.sp
+                fontSize = 17.sp
             )
             Text(
                 text = formatPeso(abs(remaining)),
                 color = if (remaining < 0) StatusOver else KainTextPrimary,
-                fontSize = 18.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -282,44 +319,66 @@ private fun GrocerySummary(
         Text(
             text = statusText,
             color = statusColor,
-            fontSize = 13.sp,
+            fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .background(statusColor.copy(alpha = 0.18f), RoundedCornerShape(50))
-                .padding(horizontal = 14.dp, vertical = 6.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         )
+
+        if (assessment.status == BudgetStatus.OVER_BUDGET) {
+            Text(
+                text = "Pwedeng dagdagan ang budget sa Step 1.",
+                color = KainTextSecondary,
+                fontSize = 15.sp
+            )
+        }
     }
 }
 
 @Composable
 private fun GroceryItems(
     items: List<GroceryPurchaseItem>,
+    firstItemFocus: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     val sortedItems = remember(items) { items.sortedBy { it.name } }
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(
-            text = "Ingredients to buy · ${items.size}",
+            text = "Mga bibilhin · ${items.size}",
             color = KainTextPrimary,
-            fontSize = 20.sp,
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold
         )
 
+        Text(
+            text = "Pindutin ang ▲ ▼ para mag-scroll sa listahan.",
+            color = KainTextSecondary,
+            fontSize = 15.sp
+        )
+
         if (sortedItems.isEmpty()) {
-            MessageCard(message = "Nothing to buy for this cycle.")
+            MessageCard(message = "Walang bibilhin para sa cycle na ito.")
         } else {
             // Padding gives focused cards room to scale without being clipped
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(sortedItems, key = { it.name }) { item ->
-                    GroceryItemCard(item = item)
+                itemsIndexed(sortedItems, key = { _, item -> item.name }) { index, item ->
+                    GroceryItemCard(
+                        item = item,
+                        modifier = if (index == 0) {
+                            Modifier.focusRequester(firstItemFocus)
+                        } else {
+                            Modifier
+                        }
+                    )
                 }
             }
         }
@@ -328,13 +387,16 @@ private fun GroceryItems(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun GroceryItemCard(item: GroceryPurchaseItem) {
-    val shape = RoundedCornerShape(12.dp)
+private fun GroceryItemCard(
+    item: GroceryPurchaseItem,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(14.dp)
 
     // Focusable so the D-pad can scroll through the list
     Card(
         onClick = {},
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         scale = CardDefaults.scale(focusedScale = 1.02f),
         shape = CardDefaults.shape(shape = shape),
         colors = CardDefaults.colors(
@@ -343,7 +405,7 @@ private fun GroceryItemCard(item: GroceryPurchaseItem) {
         ),
         border = CardDefaults.border(
             border = Border.None,
-            focusedBorder = Border(BorderStroke(2.dp, KainAccent), shape = shape)
+            focusedBorder = Border(BorderStroke(3.dp, KainAccent), shape = shape)
         )
     ) {
         Row(
@@ -360,27 +422,27 @@ private fun GroceryItemCard(item: GroceryPurchaseItem) {
                 Text(
                     text = item.name,
                     color = KainTextPrimary,
-                    fontSize = 18.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
 
                 Text(
-                    text = "Buy ${item.purchaseCount} × " +
+                    text = "Bilhin: ${item.purchaseCount} × " +
                             "${formatQuantity(item.purchaseQuantity)} " +
                             item.purchaseUnit.name.lowercase(),
                     color = KainAccent,
-                    fontSize = 14.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
 
                 Text(
-                    text = "Need ${formatQuantity(item.requiredQuantity)} " +
+                    text = "Kailangan: ${formatQuantity(item.requiredQuantity)} " +
                             "${item.requiredUnit.name.lowercase()} · " +
-                            "Total ${formatQuantity(item.purchasedQuantity)} " +
+                            "Kabuuan: ${formatQuantity(item.purchasedQuantity)} " +
                             item.purchaseUnit.name.lowercase(),
                     color = KainTextSecondary,
-                    fontSize = 12.sp,
+                    fontSize = 15.sp,
                     maxLines = 1
                 )
             }
@@ -388,7 +450,7 @@ private fun GroceryItemCard(item: GroceryPurchaseItem) {
             Text(
                 text = formatPeso(item.estimatedCostCentavos),
                 color = KainTextPrimary,
-                fontSize = 18.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -396,7 +458,10 @@ private fun GroceryItemCard(item: GroceryPurchaseItem) {
 }
 
 @Composable
-private fun MessageCard(message: String) {
+private fun MessageCard(
+    message: String,
+    hint: String? = null
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -405,12 +470,22 @@ private fun MessageCard(message: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(text = "🛒", fontSize = 36.sp)
+        Text(text = "🛒", fontSize = 40.sp)
         Text(
             text = message,
-            color = KainTextSecondary,
-            fontSize = 16.sp
+            color = KainTextPrimary,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center
         )
+        if (hint != null) {
+            Text(
+                text = hint,
+                color = KainTextSecondary,
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 

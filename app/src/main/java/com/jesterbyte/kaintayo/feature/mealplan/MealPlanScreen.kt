@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -33,6 +34,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -58,12 +60,29 @@ import com.jesterbyte.kaintayo.ui.theme.KainTextPrimary
 import com.jesterbyte.kaintayo.ui.theme.KainTextSecondary
 import kotlinx.coroutines.flow.collectLatest
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
-private val CycleDateFormatter = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
-private val FullDateFormatter = DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH)
-private val DayNameFormatter = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)
+private val FilipinoDays = listOf(
+    "Lunes", "Martes", "Miyerkules", "Huwebes", "Biyernes", "Sabado", "Linggo"
+)
+
+private val ShortFilipinoDays = listOf("Lun", "Mar", "Miy", "Huw", "Biy", "Sab", "Lin")
+
+private val FilipinoMonths = listOf(
+    "Enero", "Pebrero", "Marso", "Abril", "Mayo", "Hunyo",
+    "Hulyo", "Agosto", "Setyembre", "Oktubre", "Nobyembre", "Disyembre"
+)
+
+private val ShortFilipinoMonths = listOf(
+    "Ene", "Peb", "Mar", "Abr", "May", "Hun",
+    "Hul", "Ago", "Set", "Okt", "Nob", "Dis"
+)
+
+private fun formatShortDate(date: LocalDate): String =
+    "${ShortFilipinoMonths[date.monthValue - 1]} ${date.dayOfMonth}"
+
+private fun formatFullDate(date: LocalDate): String =
+    "${FilipinoDays[date.dayOfWeek.value - 1]}, " +
+            "${FilipinoMonths[date.monthValue - 1]} ${date.dayOfMonth}"
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -109,8 +128,8 @@ fun MealPlanScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 48.dp, vertical = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 48.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Header
             Row(
@@ -123,97 +142,116 @@ fun MealPlanScreen(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Button(onClick = onBack) {
-                        Text("← Back", fontSize = 14.sp)
+                        Text("← Bumalik", fontSize = 16.sp)
                     }
-                    Text("📅", fontSize = 28.sp)
-                    Text(
-                        text = "My Meal Plan",
-                        color = KainTextPrimary,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("📅", fontSize = 30.sp)
+                    Column {
+                        Text(
+                            text = "Step 3: Meal Plan",
+                            color = KainTextPrimary,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Ito ang ulam sa bawat araw: almusal, tanghalian, at hapunan.",
+                            color = KainTextSecondary,
+                            fontSize = 16.sp
+                        )
+                    }
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "${cycle.startDate.format(CycleDateFormatter)} – " +
-                                cycle.endDate.format(CycleDateFormatter),
+                        text = "${formatShortDate(cycle.startDate)} – " +
+                                formatShortDate(cycle.endDate),
                         color = KainAccent,
-                        fontSize = 14.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     if (householdSize != null) {
                         Text(
-                            text = "Cooking for $householdSize",
+                            text = "Para sa $householdSize tao",
                             color = KainTextSecondary,
-                            fontSize = 12.sp
+                            fontSize = 15.sp
                         )
                     }
                 }
             }
 
-            // Day picker
-            DateStrip(
-                cycle = cycle,
-                today = today,
-                selectedDate = selectedDate,
-                onDateSelected = { selectedDate = it }
-            )
-
-            // Selected day title
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = selectedDate.format(FullDateFormatter),
-                    color = KainTextPrimary,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                if (selectedDate == today) {
-                    Text(
-                        text = "TODAY",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .background(KainGreen, RoundedCornerShape(50))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            // Content
             when {
                 isLoading -> {
                     Text(
-                        text = "Loading meal plan...",
+                        text = "Kinukuha ang meal plan... sandali lang po.",
                         color = KainTextSecondary,
-                        fontSize = 16.sp
+                        fontSize = 18.sp
                     )
                 }
 
                 plannedMeals.isEmpty() -> {
                     EmptyState(
-                        title = "No meal plan generated yet",
-                        message = "Go to Set Budget on the dashboard to generate meals for this payday cycle."
-                    )
-                }
-
-                mealsForSelectedDate.isEmpty() -> {
-                    EmptyState(
-                        title = "Nothing planned for this day",
-                        message = "Pick another day from the strip above."
+                        title = "Wala pang meal plan",
+                        message = "Gawin muna ang Step 1: I-set ang Budget para magkaroon ng ulam.",
+                        hint = "Pindutin ang ← Bumalik para bumalik sa Dashboard."
                     )
                 }
 
                 else -> {
-                    MealRow(meals = mealsForSelectedDate)
+                    Text(
+                        text = "Pumili ng araw. Pindutin ang ◀ ▶ para lumipat.",
+                        color = KainTextSecondary,
+                        fontSize = 16.sp
+                    )
+
+                    DateStrip(
+                        cycle = cycle,
+                        today = today,
+                        selectedDate = selectedDate,
+                        onDateSelected = { selectedDate = it }
+                    )
+
+                    // Selected day title
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = formatFullDate(selectedDate),
+                            color = KainTextPrimary,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (selectedDate == today) {
+                            Text(
+                                text = "NGAYON",
+                                color = KainBackground,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .background(KainAccent, RoundedCornerShape(50))
+                                    .padding(horizontal = 12.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+
+                    if (mealsForSelectedDate.isEmpty()) {
+                        EmptyState(
+                            title = "Walang nakaplano sa araw na ito",
+                            message = "Pumili ng ibang araw sa itaas.",
+                            hint = null
+                        )
+                    } else {
+                        MealRow(meals = mealsForSelectedDate)
+                    }
+
+                    Text(
+                        text = "Tapos na ang 3 hakbang! Pindutin ang ← Bumalik para sa Dashboard.",
+                        color = KainTextSecondary,
+                        fontSize = 15.sp
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -238,6 +276,7 @@ private fun DateStrip(
     LaunchedEffect(days) {
         val index = days.indexOf(initialDate).coerceAtLeast(0)
         listState.scrollToItem((index - 2).coerceAtLeast(0))
+        withFrameNanos { } // let the row lay out before asking for focus
         runCatching { initialFocus.requestFocus() }
     }
 
@@ -272,16 +311,16 @@ private fun DayChip(
     onFocused: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(14.dp)
 
     Card(
-        // Days are selected as soon as they receive focus, so D-pad browsing is instant
+        // Days are selected as soon as they receive focus, so browsing with the D-pad is instant
         onClick = {},
         modifier = modifier
-            .width(72.dp)
-            .height(80.dp)
+            .width(88.dp)
+            .height(96.dp)
             .onFocusChanged { if (it.isFocused) onFocused() },
-        scale = CardDefaults.scale(focusedScale = 1.05f),
+        scale = CardDefaults.scale(focusedScale = 1.06f),
         shape = CardDefaults.shape(shape = shape),
         colors = CardDefaults.colors(
             containerColor = if (isSelected) KainGreenDark else KainSurface,
@@ -289,11 +328,11 @@ private fun DayChip(
         ),
         border = CardDefaults.border(
             border = if (isSelected) {
-                Border(BorderStroke(1.5.dp, KainAccent), shape = shape)
+                Border(BorderStroke(2.dp, KainAccent), shape = shape)
             } else {
                 Border.None
             },
-            focusedBorder = Border(BorderStroke(2.dp, KainAccent), shape = shape)
+            focusedBorder = Border(BorderStroke(3.dp, KainAccent), shape = shape)
         )
     ) {
         Column(
@@ -302,21 +341,21 @@ private fun DayChip(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = date.format(DayNameFormatter).uppercase(),
+                text = ShortFilipinoDays[date.dayOfWeek.value - 1].uppercase(),
                 color = KainTextSecondary,
-                fontSize = 11.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = date.dayOfMonth.toString(),
                 color = Color.White,
-                fontSize = 22.sp,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = if (isToday) "TODAY" else " ",
+                text = if (isToday) "NGAYON" else " ",
                 color = KainAccent,
-                fontSize = 9.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -333,7 +372,7 @@ private fun MealRow(meals: List<PlannedMeal>) {
             val meal = meals.firstOrNull { it.mealType == mealType }
             val cardModifier = Modifier
                 .weight(1f)
-                .height(210.dp)
+                .height(250.dp)
 
             if (meal != null) {
                 MealCard(meal = meal, modifier = cardModifier)
@@ -350,9 +389,9 @@ private fun MealCard(
     meal: PlannedMeal,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(16.dp)
 
-    // Focusable so the D-pad can scroll the page; onClick is ready for a future detail view
+    // Focusable so the D-pad can reach and scroll to it; onClick is ready for a future recipe screen
     Card(
         onClick = {},
         modifier = modifier,
@@ -364,7 +403,7 @@ private fun MealCard(
         ),
         border = CardDefaults.border(
             border = Border.None,
-            focusedBorder = Border(BorderStroke(2.dp, KainAccent), shape = shape)
+            focusedBorder = Border(BorderStroke(3.dp, KainAccent), shape = shape)
         )
     ) {
         Column(
@@ -377,11 +416,11 @@ private fun MealCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(text = mealEmoji(meal.mealType), fontSize = 20.sp)
+                Text(text = mealEmoji(meal.mealType), fontSize = 24.sp)
                 Text(
                     text = mealLabel(meal.mealType),
                     color = KainAccent,
-                    fontSize = 12.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
@@ -390,7 +429,7 @@ private fun MealCard(
             Text(
                 text = meal.recipeName,
                 color = KainTextPrimary,
-                fontSize = 20.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -399,7 +438,7 @@ private fun MealCard(
             Text(
                 text = meal.description,
                 color = KainTextSecondary,
-                fontSize = 13.sp,
+                fontSize = 16.sp,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
@@ -407,9 +446,9 @@ private fun MealCard(
             Spacer(modifier = Modifier.weight(1f))
 
             Text(
-                text = "⏱ ${meal.preparationMinutes} min",
+                text = "⏱ ${meal.preparationMinutes} minuto",
                 color = KainAccent,
-                fontSize = 13.sp,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -423,24 +462,24 @@ private fun EmptyMealSlot(
 ) {
     Box(
         modifier = modifier
-            .background(KainSurface.copy(alpha = 0.4f), RoundedCornerShape(14.dp)),
+            .background(KainSurface.copy(alpha = 0.4f), RoundedCornerShape(16.dp)),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
                 text = mealLabel(mealType),
                 color = KainTextSecondary,
-                fontSize = 12.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp
             )
             Text(
-                text = "Nothing planned",
+                text = "Walang nakaplano",
                 color = KainTextSecondary,
-                fontSize = 13.sp
+                fontSize = 16.sp
             )
         }
     }
@@ -449,7 +488,8 @@ private fun EmptyMealSlot(
 @Composable
 private fun EmptyState(
     title: String,
-    message: String
+    message: String,
+    hint: String?
 ) {
     Column(
         modifier = Modifier
@@ -459,25 +499,35 @@ private fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(text = "🍽️", fontSize = 36.sp)
+        Text(text = "🍽️", fontSize = 40.sp)
         Text(
             text = title,
             color = KainTextPrimary,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
         )
         Text(
             text = message,
             color = KainTextSecondary,
-            fontSize = 14.sp
+            fontSize = 18.sp,
+            textAlign = TextAlign.Center
         )
+        if (hint != null) {
+            Text(
+                text = hint,
+                color = KainTextSecondary,
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
 private fun mealLabel(type: MealType): String = when (type) {
-    MealType.BREAKFAST -> "BREAKFAST"
-    MealType.LUNCH -> "LUNCH"
-    MealType.DINNER -> "DINNER"
+    MealType.BREAKFAST -> "ALMUSAL"
+    MealType.LUNCH -> "TANGHALIAN"
+    MealType.DINNER -> "HAPUNAN"
 }
 
 private fun mealEmoji(type: MealType): String = when (type) {
