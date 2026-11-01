@@ -27,10 +27,10 @@ import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
-import com.example.kaintayo.data.KainTayoAppContainer
 import com.example.kaintayo.core.time.PaydayCycleCalculator
+import com.example.kaintayo.data.KainTayoAppContainer
 import com.example.kaintayo.domain.model.BudgetStatus
-import com.example.kaintayo.domain.model.GroceryCostItem
+import com.example.kaintayo.domain.model.GroceryPurchaseItem
 import com.example.kaintayo.domain.model.MealPlanGroceryEstimate
 import com.example.kaintayo.ui.theme.KainAccent
 import com.example.kaintayo.ui.theme.KainBackground
@@ -149,7 +149,7 @@ fun GroceryListScreen(
 
             estimate != null -> {
                 GrocerySummary(estimate = estimate!!)
-                GroceryItems(items = estimate!!.groceryCost.items)
+                GroceryItems(items = estimate!!.purchaseEstimate.items)
             }
         }
 
@@ -228,9 +228,10 @@ private fun GrocerySummary(
     }
 }
 
+
 @Composable
 private fun GroceryItems(
-    items: List<GroceryCostItem>
+    items: List<GroceryPurchaseItem>
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -251,7 +252,7 @@ private fun GroceryItems(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun GroceryItemCard(
-    item: GroceryCostItem
+    item: GroceryPurchaseItem
 ) {
     Card(
         onClick = {},
@@ -279,7 +280,19 @@ private fun GroceryItemCard(
                 )
 
                 Text(
-                    text = "${formatQuantity(item.quantity)} ${item.unit.name.lowercase()}",
+                    text = "Required: ${formatQuantity(item.requiredQuantity)} ${item.requiredUnit.name.lowercase()}",
+                    color = KainText,
+                    fontSize = 15.sp
+                )
+
+                Text(
+                    text = "Buy: ${item.purchaseCount} × ${formatQuantity(item.purchaseQuantity)} ${item.purchaseUnit.name.lowercase()}",
+                    color = KainText,
+                    fontSize = 15.sp
+                )
+
+                Text(
+                    text = "Total purchased: ${formatQuantity(item.purchasedQuantity)} ${item.purchaseUnit.name.lowercase()}",
                     color = KainText,
                     fontSize = 15.sp
                 )
