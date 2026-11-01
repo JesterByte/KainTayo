@@ -8,6 +8,7 @@ import com.example.kaintayo.data.repository.IngredientRepositoryImpl
 import com.example.kaintayo.data.repository.MealPlanRepositoryImpl
 import com.example.kaintayo.data.repository.RecipeRepositoryImpl
 import com.example.kaintayo.domain.usecase.GeneratePaydayMealPlanUseCase
+import com.example.kaintayo.domain.usecase.GetPaydayGroceryListUseCase
 
 class KainTayoAppContainer(context: Context) {
 
@@ -33,6 +34,13 @@ class KainTayoAppContainer(context: Context) {
             ingredientRepository = ingredientRepository,
             recipeRepository = recipeRepository,
             mealPlanRepository = mealPlanRepository
+        )
+
+    val getPaydayGroceryListUseCase =
+        GetPaydayGroceryListUseCase(
+            mealPlanRepository = mealPlanRepository,
+            recipeRepository = recipeRepository,
+            ingredientRepository = ingredientRepository
         )
 
     suspend fun seedCatalog() {

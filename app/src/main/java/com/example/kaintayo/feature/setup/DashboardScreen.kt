@@ -35,6 +35,7 @@ import androidx.tv.material3.Text
 import com.example.kaintayo.KainTayoAppContainer
 import com.example.kaintayo.core.time.PaydayCycleCalculator
 import com.example.kaintayo.domain.usecase.MealPlanGenerationStatus
+import com.example.kaintayo.feature.groceries.GroceryListScreen
 import com.example.kaintayo.feature.mealplan.MealPlanScreen
 import com.example.kaintayo.ui.theme.KainAccent
 import com.example.kaintayo.ui.theme.KainBackground
@@ -61,6 +62,10 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
     }
 
     var showMealPlan by remember {
+        mutableStateOf(false)
+    }
+
+    var showGroceryList by remember {
         mutableStateOf(false)
     }
 
@@ -96,6 +101,17 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
             appContainer = appContainer,
             onBack = {
                 showMealPlan = false
+            }
+        )
+
+        return
+    }
+
+    if (showGroceryList) {
+        GroceryListScreen(
+            appContainer = appContainer,
+            onBack = {
+                showGroceryList = false
             }
         )
 
@@ -299,11 +315,7 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
                     symbol = "🛒",
                     modifier = Modifier.weight(1f)
                 ) {
-                    Toast.makeText(
-                        context,
-                        "Grocery List coming soon!",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    showGroceryList = true
                 }
 
                 DashboardCard(
