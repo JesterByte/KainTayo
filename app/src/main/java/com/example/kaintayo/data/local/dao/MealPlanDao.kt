@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.example.kaintayo.data.local.entity.MealPlanEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -47,4 +48,28 @@ interface MealPlanDao {
         date: String,
         mealType: String
     )
+
+    @Query(
+        """
+    DELETE FROM meal_plans
+    WHERE date BETWEEN :startDate AND :endDate
+    """
+    )
+    suspend fun deleteMealsForPeriod(
+        startDate: String,
+        endDate: String
+    )
+
+    @Transaction
+    suspend fun replaceMealPlansForPeriod(
+        startDate: String,
+        endDate: String,
+        mealPlans: List<MealPlanEntity>
+    ) {
+        deleteMealsForPeriod(startDate, endDate)
+
+        if (mealPlans.isNotEmpty()) {
+            insertMealPlans(mealPlans)
+        }
+    }
 }

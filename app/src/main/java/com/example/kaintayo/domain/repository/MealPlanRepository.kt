@@ -21,4 +21,10 @@ interface MealPlanRepository {
         date: LocalDate,
         mealType: com.example.kaintayo.domain.model.MealType
     )
+
+    suspend fun replaceMealPlansForPeriod(
+        startDate: LocalDate,
+        endDate: LocalDate,
+        mealPlans: List<MealPlan>
+    )
 }

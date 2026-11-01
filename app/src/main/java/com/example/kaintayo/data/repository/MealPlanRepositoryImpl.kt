@@ -69,4 +69,27 @@ class MealPlanRepositoryImpl(
         mealType = mealType,
         recipeId = recipeId
     )
+
+    override suspend fun replaceMealPlansForPeriod(
+        startDate: LocalDate,
+        endDate: LocalDate,
+        mealPlans: List<MealPlan>
+    ) {
+        require(!endDate.isBefore(startDate)) {
+            "End date cannot be before start date."
+        }
+
+        require(mealPlans.all {
+            !it.date.isBefore(startDate) &&
+                    !it.date.isAfter(endDate)
+        }) {
+            "All meal plans must be within the replacement period."
+        }
+
+        mealPlanDao.replaceMealPlansForPeriod(
+            startDate = startDate.toString(),
+            endDate = endDate.toString(),
+            mealPlans = mealPlans.map { it.toEntity() }
+        )
+    }
 }

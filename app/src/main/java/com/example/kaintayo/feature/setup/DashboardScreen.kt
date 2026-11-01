@@ -3,9 +3,21 @@ package com.example.kaintayo.feature.setup
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,17 +32,41 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.NonInteractiveSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import com.example.kaintayo.KainTayoAppContainer
 import com.example.kaintayo.core.time.PaydayCycleCalculator
-import com.example.kaintayo.ui.theme.*
+import com.example.kaintayo.domain.usecase.MealPlanGenerationStatus
+import com.example.kaintayo.ui.theme.KainAccent
+import com.example.kaintayo.ui.theme.KainBackground
+import com.example.kaintayo.ui.theme.KainGreen
+import com.example.kaintayo.ui.theme.KainGreenDark
+import com.example.kaintayo.ui.theme.KainSurface
+import com.example.kaintayo.ui.theme.KainTextPrimary
+import com.example.kaintayo.ui.theme.KainTextSecondary
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(appContainer: KainTayoAppContainer) {
 
     val context = LocalContext.current
+
+    val coroutineScope = rememberCoroutineScope()
+
+    var showBudgetSetup by remember {
+        mutableStateOf(false)
+    }
+
+    var generationMessage by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var isGenerating by remember {
+        mutableStateOf(false)
+    }
+
     val today = LocalDate.now()
     val cycle = remember(today) {
         PaydayCycleCalculator.getCurrentCycle(today)
@@ -49,6 +85,70 @@ fun DashboardScreen() {
     val cycleRange =
         "${cycle.startDate.format(dateFormatter)} – " +
                 cycle.endDate.format(dateFormatter)
+
+    if (showBudgetSetup) {
+        BudgetSetupScreen(
+            initialBudgetCentavos = appContainer.preferences.getBudgetCentavos(),
+            initialHouseholdSize = appContainer.preferences.getHouseholdSize(),
+            onBack = {
+                showBudgetSetup = false
+            },
+            onGenerate = { budgetCentavos, householdSize ->
+
+                if (!isGenerating) {
+                    appContainer.preferences.saveBudgetCentavos(
+                        budgetCentavos
+                    )
+
+                    appContainer.preferences.saveHouseholdSize(
+                        householdSize
+                    )
+
+                    isGenerating = true
+                    generationMessage = "Generating your meal plan..."
+
+                    coroutineScope.launch {
+                        try {
+                            val result = appContainer.generatePaydayMealPlanUseCase(
+                                today = LocalDate.now(),
+                                targetServings = householdSize,
+                                budgetCentavos = budgetCentavos
+                            )
+
+                            generationMessage = when (result?.status) {
+                                MealPlanGenerationStatus.GENERATED ->
+                                    "Your meal plan was generated successfully!"
+
+                                MealPlanGenerationStatus.OVER_BUDGET ->
+                                    "The estimated cost exceeds your budget."
+
+                                MealPlanGenerationStatus.CANNOT_GENERATE ->
+                                    "Not enough valid recipes to create a plan."
+
+                                null ->
+                                    "Please check your budget and household settings."
+                            }
+
+                            if (result?.status == MealPlanGenerationStatus.GENERATED) {
+                                showBudgetSetup = false
+                            }
+                        } catch (exception: Exception) {
+                            if (exception is kotlinx.coroutines.CancellationException) {
+                                throw exception
+                            }
+
+                            generationMessage =
+                                "Something went wrong while generating your plan."
+                        } finally {
+                            isGenerating = false
+                        }
+                    }
+                }
+            }
+        )
+
+        return
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -138,6 +238,15 @@ fun DashboardScreen() {
                 )
             }
 
+            if (generationMessage != null) {
+                Text(
+                    text = generationMessage!!,
+                    color = KainAccent,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
             // Dashboard menu
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -163,11 +272,8 @@ fun DashboardScreen() {
                     symbol = "💰",
                     modifier = Modifier.weight(1f)
                 ) {
-                    Toast.makeText(
-                        context,
-                        "Budget Setup coming soon!",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    generationMessage = null
+                    showBudgetSetup = true
                 }
             }
 

@@ -3,6 +3,9 @@ package com.example.kaintayo.data.repository
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.example.kaintayo.data.catalog.FilipinoCatalogSeeder
+import com.example.kaintayo.data.catalog.FilipinoIngredientCatalog
+import com.example.kaintayo.data.catalog.FilipinoRecipeCatalog
 import com.example.kaintayo.data.local.KainTayoDatabase
 import com.example.kaintayo.domain.model.Ingredient
 import com.example.kaintayo.domain.model.MealPlan
@@ -21,9 +24,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
-import com.example.kaintayo.data.catalog.FilipinoCatalogSeeder
-import com.example.kaintayo.data.catalog.FilipinoIngredientCatalog
-import com.example.kaintayo.data.catalog.FilipinoRecipeCatalog
 
 @RunWith(RobolectricTestRunner::class)
 class RepositoryIntegrationTest {
@@ -373,6 +373,194 @@ class RepositoryIntegrationTest {
         assertEquals(
             originalRecipe.ingredients,
             savedRecipe?.ingredients
+        )
+    }
+
+    @Test
+    fun replacingMealPlansReplacesOnlyMealsInsidePeriod() = runBlocking {
+        val recipe = Recipe(
+            id = "test-recipe",
+            name = "Test Recipe",
+            description = "Test",
+            mealType = MealType.LUNCH,
+            servings = 2,
+            ingredients = emptyList(),
+            instructions = emptyList(),
+            preparationMinutes = 20
+        )
+
+        recipeRepository.saveRecipe(recipe)
+
+        val startDate = LocalDate.of(2026, 10, 30)
+        val endDate = LocalDate.of(2026, 11, 14)
+
+        val outsideBefore = MealPlan(
+            LocalDate.of(2026, 10, 29),
+            MealType.LUNCH,
+            recipe.id
+        )
+
+        val oldInside1 = MealPlan(
+            LocalDate.of(2026, 10, 30),
+            MealType.BREAKFAST,
+            recipe.id
+        )
+
+        val oldInside2 = MealPlan(
+            LocalDate.of(2026, 11, 14),
+            MealType.DINNER,
+            recipe.id
+        )
+
+        val outsideAfter = MealPlan(
+            LocalDate.of(2026, 11, 15),
+            MealType.LUNCH,
+            recipe.id
+        )
+
+        mealPlanRepository.saveMealPlans(
+            listOf(outsideBefore, oldInside1, oldInside2, outsideAfter)
+        )
+
+        val replacement = listOf(
+            MealPlan(
+                LocalDate.of(2026, 10, 30),
+                MealType.LUNCH,
+                recipe.id
+            ),
+            MealPlan(
+                LocalDate.of(2026, 11, 14),
+                MealType.BREAKFAST,
+                recipe.id
+            )
+        )
+
+        mealPlanRepository.replaceMealPlansForPeriod(
+            startDate,
+            endDate,
+            replacement
+        )
+
+        val savedInside = mealPlanRepository
+            .getMealsForPeriod(startDate, endDate)
+            .first()
+
+        assertEquals(2, savedInside.size)
+        assertTrue(savedInside.containsAll(replacement))
+        assertTrue(!savedInside.contains(oldInside1))
+        assertTrue(!savedInside.contains(oldInside2))
+
+        assertEquals(
+            listOf(outsideBefore),
+            mealPlanRepository.getMealsForDate(outsideBefore.date).first()
+        )
+
+        assertEquals(
+            listOf(outsideAfter),
+            mealPlanRepository.getMealsForDate(outsideAfter.date).first()
+        )
+    }
+
+    @Test
+    fun replacingMealPlansWithEmptyListClearsPeriod() = runBlocking {
+        val recipe = Recipe(
+            id = "test-recipe",
+            name = "Test Recipe",
+            description = "Test",
+            mealType = MealType.LUNCH,
+            servings = 2,
+            ingredients = emptyList(),
+            instructions = emptyList(),
+            preparationMinutes = 20
+        )
+
+        recipeRepository.saveRecipe(recipe)
+
+        val startDate = LocalDate.of(2026, 10, 30)
+        val endDate = LocalDate.of(2026, 11, 14)
+
+        val inside = MealPlan(
+            LocalDate.of(2026, 10, 31),
+            MealType.LUNCH,
+            recipe.id
+        )
+
+        val outside = MealPlan(
+            LocalDate.of(2026, 11, 15),
+            MealType.DINNER,
+            recipe.id
+        )
+
+        mealPlanRepository.saveMealPlans(listOf(inside, outside))
+
+        mealPlanRepository.replaceMealPlansForPeriod(
+            startDate = startDate,
+            endDate = endDate,
+            mealPlans = emptyList()
+        )
+
+        assertTrue(
+            mealPlanRepository
+                .getMealsForPeriod(startDate, endDate)
+                .first()
+                .isEmpty()
+        )
+
+        assertEquals(
+            listOf(outside),
+            mealPlanRepository.getMealsForDate(outside.date).first()
+        )
+    }
+
+    @Test
+    fun replacingMealPlansRejectsMealsOutsidePeriod() = runBlocking {
+        val recipe = Recipe(
+            id = "test-recipe",
+            name = "Test Recipe",
+            description = "Test",
+            mealType = MealType.LUNCH,
+            servings = 2,
+            ingredients = emptyList(),
+            instructions = emptyList(),
+            preparationMinutes = 20
+        )
+
+        recipeRepository.saveRecipe(recipe)
+
+        val startDate = LocalDate.of(2026, 10, 30)
+        val endDate = LocalDate.of(2026, 11, 14)
+
+        val existing = MealPlan(
+            LocalDate.of(2026, 10, 31),
+            MealType.LUNCH,
+            recipe.id
+        )
+
+        mealPlanRepository.saveMealPlan(existing)
+
+        val outsidePlan = MealPlan(
+            LocalDate.of(2026, 11, 15),
+            MealType.DINNER,
+            recipe.id
+        )
+
+        try {
+            mealPlanRepository.replaceMealPlansForPeriod(
+                startDate,
+                endDate,
+                listOf(outsidePlan)
+            )
+
+            throw AssertionError("Expected IllegalArgumentException")
+        } catch (exception: IllegalArgumentException) {
+            // Expected validation failure.
+        }
+
+        assertEquals(
+            listOf(existing),
+            mealPlanRepository
+                .getMealsForPeriod(startDate, endDate)
+                .first()
         )
     }
 }
