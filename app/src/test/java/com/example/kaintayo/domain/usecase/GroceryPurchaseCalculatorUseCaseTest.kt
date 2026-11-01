@@ -1,9 +1,9 @@
-
 package com.example.kaintayo.domain.usecase
 
 import com.example.kaintayo.domain.model.ConsolidatedIngredient
 import com.example.kaintayo.domain.model.Ingredient
 import com.example.kaintayo.domain.model.MeasurementUnit
+import com.example.kaintayo.domain.model.RecipeIngredient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -301,4 +301,43 @@ class GroceryPurchaseCalculatorUseCaseTest {
         purchaseQuantity = purchaseQuantity,
         purchaseUnit = purchaseUnit
     )
+
+    @Test
+    fun consolidatesSharedChickenAcrossMealsBeforeCalculatingPurchases() {
+        val chicken = ingredient(
+            id = "chicken",
+            name = "Chicken",
+            price = 21000,
+            priceQuantity = 1.0,
+            priceUnit = MeasurementUnit.KILOGRAM,
+            purchaseQuantity = 1.0,
+            purchaseUnit = MeasurementUnit.KILOGRAM
+        )
+
+        val recipeIngredients = listOf(
+            RecipeIngredient("chicken", 300.0, MeasurementUnit.GRAM),
+            RecipeIngredient("chicken", 500.0, MeasurementUnit.GRAM),
+            RecipeIngredient("chicken", 400.0, MeasurementUnit.GRAM)
+        )
+
+        val consolidatedIngredients =
+            IngredientConsolidationUseCase.consolidate(recipeIngredients)
+
+        assertNotNull(consolidatedIngredients)
+        assertEquals(1, consolidatedIngredients!!.size)
+        assertEquals(1200.0, consolidatedIngredients[0].quantity, 0.0001)
+
+        val result = GroceryPurchaseCalculatorUseCase.calculate(
+            consolidatedIngredients = consolidatedIngredients,
+            ingredientCatalog = listOf(chicken)
+        )
+
+        assertNotNull(result)
+
+        val item = result!!.items.first()
+
+        assertEquals(2L, item.purchaseCount)
+        assertEquals(2.0, item.purchasedQuantity, 0.0001)
+        assertEquals(42000.0, result.totalCostCentavos, 0.0001)
+    }
 }
