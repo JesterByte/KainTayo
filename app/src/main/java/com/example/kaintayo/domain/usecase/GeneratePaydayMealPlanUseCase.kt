@@ -1,4 +1,3 @@
-
 package com.example.kaintayo.domain.usecase
 
 import com.example.kaintayo.core.time.PaydayCycle
@@ -7,7 +6,9 @@ import com.example.kaintayo.domain.model.MealPlan
 import com.example.kaintayo.domain.repository.IngredientRepository
 import com.example.kaintayo.domain.repository.MealPlanRepository
 import com.example.kaintayo.domain.repository.RecipeRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 enum class MealPlanGenerationStatus {
@@ -55,13 +56,16 @@ class GeneratePaydayMealPlanUseCase(
             .getAllRecipes()
             .first()
 
-        val optimizedPlan = BudgetAwareMealPlanGeneratorUseCase.generate(
-            slots = slots,
-            recipes = recipes,
-            targetServings = targetServings,
-            ingredientCatalog = ingredients,
-            budgetCentavos = budgetCentavos
-        )
+        // Meal-plan optimization is CPU-intensive, so keep it off the UI thread.
+        val optimizedPlan = withContext(Dispatchers.Default) {
+            BudgetAwareMealPlanGeneratorUseCase.generate(
+                slots = slots,
+                recipes = recipes,
+                targetServings = targetServings,
+                ingredientCatalog = ingredients,
+                budgetCentavos = budgetCentavos
+            )
+        }
 
         if (optimizedPlan == null) {
             return PaydayMealPlanGenerationResult(

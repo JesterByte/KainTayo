@@ -98,6 +98,7 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
         BudgetSetupScreen(
             initialBudgetCentavos = appContainer.preferences.getBudgetCentavos(),
             initialHouseholdSize = appContainer.preferences.getHouseholdSize(),
+            generationMessage = generationMessage,
             onBack = { showBudgetSetup = false },
             onGenerate = { budgetCentavos, householdSize ->
                 if (!isGenerating) {
@@ -136,6 +137,7 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
                             if (exception is kotlinx.coroutines.CancellationException) {
                                 throw exception
                             }
+
                             generationMessage =
                                 "Something went wrong while generating your plan."
                         } finally {

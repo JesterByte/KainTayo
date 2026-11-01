@@ -1,5 +1,6 @@
 package com.example.kaintayo.feature.setup
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -44,9 +45,14 @@ import java.math.RoundingMode
 fun BudgetSetupScreen(
     initialBudgetCentavos: Long?,
     initialHouseholdSize: Int?,
+    generationMessage: String?,
     onGenerate: (budgetCentavos: Long, householdSize: Int) -> Unit,
     onBack: () -> Unit
 ) {
+    BackHandler {
+        onBack()
+    }
+
     var budgetText by remember(initialBudgetCentavos) {
         mutableStateOf(
             initialBudgetCentavos?.let {
@@ -80,6 +86,15 @@ fun BudgetSetupScreen(
             color = KainTextSecondary,
             fontSize = 16.sp
         )
+
+        if (generationMessage != null) {
+            Text(
+                text = generationMessage,
+                color = KainAccent,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
 
         Spacer(modifier = Modifier.height(4.dp))
 
