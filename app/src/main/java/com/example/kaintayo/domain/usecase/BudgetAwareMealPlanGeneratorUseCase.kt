@@ -4,6 +4,7 @@ import com.example.kaintayo.domain.model.Ingredient
 import com.example.kaintayo.domain.model.MealPlan
 import com.example.kaintayo.domain.model.MealPlanSlot
 import com.example.kaintayo.domain.model.MealType
+import com.example.kaintayo.domain.model.PantryStock
 import com.example.kaintayo.domain.model.Recipe
 import com.example.kaintayo.domain.model.RecipeIngredient
 import kotlin.math.roundToLong
@@ -38,7 +39,8 @@ object BudgetAwareMealPlanGeneratorUseCase {
         recipes: List<Recipe>,
         targetServings: Int,
         ingredientCatalog: List<Ingredient>,
-        budgetCentavos: Long
+        budgetCentavos: Long,
+        pantryStock: List<PantryStock> = emptyList()
     ): BudgetAwareMealPlanResult? {
 
         if (
@@ -89,7 +91,8 @@ object BudgetAwareMealPlanGeneratorUseCase {
             // Ensure every recipe can be priced using the current catalog.
             GroceryPurchaseCalculatorUseCase.calculate(
                 consolidatedIngredients = consolidated,
-                ingredientCatalog = ingredientCatalog
+                ingredientCatalog = ingredientCatalog,
+                pantryStock = pantryStock
             ) ?: return null
 
             scaledIngredientsByRecipe[recipe.id] =
@@ -150,7 +153,8 @@ object BudgetAwareMealPlanGeneratorUseCase {
                     val purchaseEstimate =
                         GroceryPurchaseCalculatorUseCase.calculate(
                             consolidatedIngredients = consolidated,
-                            ingredientCatalog = ingredientCatalog
+                            ingredientCatalog = ingredientCatalog,
+                            pantryStock = pantryStock
                         ) ?: continue
 
                     val newCost =

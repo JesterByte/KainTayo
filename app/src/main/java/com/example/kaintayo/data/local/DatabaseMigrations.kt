@@ -32,4 +32,32 @@ object DatabaseMigrations {
             )
         }
     }
+
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+
+        override fun migrate(db: SupportSQLiteDatabase) {
+
+            db.execSQL(
+                """
+            CREATE TABLE IF NOT EXISTS pantry_stock (
+                ingredientId TEXT NOT NULL,
+                quantity REAL NOT NULL,
+                unit TEXT NOT NULL,
+                PRIMARY KEY(ingredientId),
+                FOREIGN KEY(ingredientId)
+                    REFERENCES ingredients(id)
+                    ON UPDATE NO ACTION
+                    ON DELETE CASCADE
+            )
+            """.trimIndent()
+            )
+
+            db.execSQL(
+                """
+            CREATE INDEX IF NOT EXISTS index_pantry_stock_ingredientId
+            ON pantry_stock(ingredientId)
+            """.trimIndent()
+            )
+        }
+    }
 }

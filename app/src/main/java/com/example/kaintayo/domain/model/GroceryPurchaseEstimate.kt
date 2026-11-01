@@ -4,9 +4,16 @@ data class GroceryPurchaseItem(
     val ingredientId: String,
     val name: String,
 
-    // Amount required by the recipes.
+    // Full amount required by the recipes.
     val requiredQuantity: Double,
     val requiredUnit: MeasurementUnit,
+
+    // Amount already available in the pantry,
+    // converted to the required unit.
+    val availableQuantity: Double,
+
+    // Remaining amount needed after using pantry stock.
+    val quantityToPurchase: Double,
 
     // Size of one purchase unit, such as 1 kg or 1 liter.
     val purchaseQuantity: Double,

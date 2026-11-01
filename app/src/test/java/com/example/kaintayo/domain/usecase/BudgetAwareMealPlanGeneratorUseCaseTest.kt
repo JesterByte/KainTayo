@@ -4,6 +4,7 @@ import com.example.kaintayo.domain.model.Ingredient
 import com.example.kaintayo.domain.model.MealPlanSlot
 import com.example.kaintayo.domain.model.MealType
 import com.example.kaintayo.domain.model.MeasurementUnit
+import com.example.kaintayo.domain.model.PantryStock
 import com.example.kaintayo.domain.model.Recipe
 import com.example.kaintayo.domain.model.RecipeIngredient
 import org.junit.Assert.assertEquals
@@ -356,4 +357,55 @@ class BudgetAwareMealPlanGeneratorUseCaseTest {
         assertEquals(0L, result.remainingBudgetCentavos)
     }
 
+    @Test
+    fun pantryStockCanMakeAnOtherwiseUnaffordablePlanFitBudget() {
+        val onion = Ingredient(
+            id = "onion",
+            name = "Onion",
+            defaultUnit = MeasurementUnit.GRAM,
+            estimatedPriceCentavos = 1000,
+            priceQuantity = 1000.0,
+            priceUnit = MeasurementUnit.GRAM,
+            purchaseQuantity = 1.0,
+            purchaseUnit = MeasurementUnit.KILOGRAM
+        )
+
+        val recipe = Recipe(
+            id = "onion-breakfast",
+            name = "Onion Breakfast",
+            description = "Test recipe",
+            mealType = MealType.BREAKFAST,
+            servings = 1,
+            ingredients = listOf(
+                RecipeIngredient(
+                    ingredientId = "onion",
+                    quantity = 300.0,
+                    unit = MeasurementUnit.GRAM
+                )
+            ),
+            instructions = listOf("Prepare onion."),
+            preparationMinutes = 10
+        )
+
+        val result = BudgetAwareMealPlanGeneratorUseCase.generate(
+            slots = createSlots(1),
+            recipes = listOf(recipe),
+            targetServings = 1,
+            ingredientCatalog = listOf(onion),
+            budgetCentavos = 0L,
+            pantryStock = listOf(
+                PantryStock(
+                    ingredientId = "onion",
+                    quantity = 300.0,
+                    unit = MeasurementUnit.GRAM
+                )
+            )
+        )
+
+        assertNotNull(result)
+        assertTrue(result!!.fitsBudget)
+        assertEquals(1, result.mealPlans.size)
+        assertEquals(0L, result.estimatedPurchaseCostCentavos)
+        assertEquals(0L, result.remainingBudgetCentavos)
+    }
 }

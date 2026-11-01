@@ -5,6 +5,7 @@ import com.example.kaintayo.domain.model.BudgetStatus
 import com.example.kaintayo.domain.model.Ingredient
 import com.example.kaintayo.domain.model.MealType
 import com.example.kaintayo.domain.model.MeasurementUnit
+import com.example.kaintayo.domain.model.PantryStock
 import com.example.kaintayo.domain.model.Recipe
 import com.example.kaintayo.domain.model.RecipeIngredient
 import org.junit.Assert.assertEquals
@@ -190,6 +191,98 @@ class MealPlanGroceryEstimateUseCaseTest {
                 ingredientCatalog = catalog,
                 budgetCentavos = -100L
             )
+        )
+    }
+
+    @Test
+    fun pantryStockReducesPurchaseCostButNotRecipeConsumptionCost() {
+        val result = MealPlanGroceryEstimateUseCase.estimate(
+            recipes = listOf(tinola, chickenAdobo),
+            targetServings = 4,
+            ingredientCatalog = catalog,
+            budgetCentavos = 20000L,
+            pantryStock = listOf(
+                PantryStock(
+                    ingredientId = "chicken",
+                    quantity = 1.2,
+                    unit = MeasurementUnit.KILOGRAM
+                ),
+                PantryStock(
+                    ingredientId = "sayote",
+                    quantity = 2.0,
+                    unit = MeasurementUnit.PIECE
+                )
+            )
+        )!!
+
+        // Recipes still consume 2 kg chicken and 4 sayote.
+        assertEquals(
+            36000.0,
+            result.groceryCost.totalCostCentavos,
+            0.0001
+        )
+
+        val chickenPurchase = result.purchaseEstimate.items
+            .first { it.ingredientId == "chicken" }
+
+        val sayotePurchase = result.purchaseEstimate.items
+            .first { it.ingredientId == "sayote" }
+
+        // 1.2 kg chicken stock leaves 800 g to buy.
+        // The purchase size is 1 kg, so buy 1 kg.
+        assertEquals(2000.0, chickenPurchase.requiredQuantity, 0.0001)
+        assertEquals(1200.0, chickenPurchase.availableQuantity, 0.0001)
+        assertEquals(800.0, chickenPurchase.quantityToPurchase, 0.0001)
+        assertEquals(1L, chickenPurchase.purchaseCount)
+
+        // Two sayote are already available; buy the remaining two.
+        assertEquals(4.0, sayotePurchase.requiredQuantity, 0.0001)
+        assertEquals(2.0, sayotePurchase.availableQuantity, 0.0001)
+        assertEquals(2.0, sayotePurchase.quantityToPurchase, 0.0001)
+        assertEquals(2L, sayotePurchase.purchaseCount)
+
+        // Purchase cost: 15,000 chicken + 3,000 sayote.
+        assertEquals(
+            18000.0,
+            result.purchaseEstimate.totalCostCentavos,
+            0.0001
+        )
+
+        assertEquals(
+            18000L,
+            result.budgetAssessment.estimatedCostCentavos
+        )
+
+        assertEquals(
+            2000L,
+            result.budgetAssessment.remainingBudgetCentavos
+        )
+
+        assertEquals(
+            BudgetStatus.WITHIN_BUDGET,
+            result.budgetAssessment.status
+        )
+    }
+
+    @Test
+    fun emptyPantryPreservesOriginalPurchaseEstimate() {
+        val result = MealPlanGroceryEstimateUseCase.estimate(
+            recipes = listOf(tinola, chickenAdobo),
+            targetServings = 4,
+            ingredientCatalog = catalog,
+            budgetCentavos = 50000L,
+            pantryStock = emptyList()
+        )!!
+
+        assertEquals(
+            36000.0,
+            result.purchaseEstimate.totalCostCentavos,
+            0.0001
+        )
+
+        assertEquals(
+            36000L,
+            result.budgetAssessment.estimatedCostCentavos
         )
     }
 }

@@ -4,11 +4,13 @@ import com.example.kaintayo.domain.model.Ingredient
 import com.example.kaintayo.domain.model.MealPlan
 import com.example.kaintayo.domain.model.MealType
 import com.example.kaintayo.domain.model.MeasurementUnit
+import com.example.kaintayo.domain.model.PantryStock
 import com.example.kaintayo.domain.model.PlannedMeal
 import com.example.kaintayo.domain.model.Recipe
 import com.example.kaintayo.domain.model.RecipeIngredient
 import com.example.kaintayo.domain.repository.IngredientRepository
 import com.example.kaintayo.domain.repository.MealPlanRepository
+import com.example.kaintayo.domain.repository.PantryStockRepository
 import com.example.kaintayo.domain.repository.RecipeRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -26,6 +28,7 @@ class GeneratePaydayMealPlanUseCaseTest {
     private lateinit var ingredientRepository: FakeIngredientRepository
     private lateinit var recipeRepository: FakeRecipeRepository
     private lateinit var mealPlanRepository: FakeMealPlanRepository
+    private lateinit var pantryStockRepository: FakePantryStockRepository
     private lateinit var useCase: GeneratePaydayMealPlanUseCase
 
     private val today = LocalDate.of(2026, 10, 31)
@@ -35,11 +38,13 @@ class GeneratePaydayMealPlanUseCaseTest {
         ingredientRepository = FakeIngredientRepository()
         recipeRepository = FakeRecipeRepository()
         mealPlanRepository = FakeMealPlanRepository()
+        pantryStockRepository = FakePantryStockRepository()
 
         useCase = GeneratePaydayMealPlanUseCase(
             ingredientRepository = ingredientRepository,
             recipeRepository = recipeRepository,
-            mealPlanRepository = mealPlanRepository
+            mealPlanRepository = mealPlanRepository,
+            pantryStockRepository = pantryStockRepository
         )
     }
 
@@ -67,6 +72,43 @@ class GeneratePaydayMealPlanUseCaseTest {
 
         assertEquals(1, mealPlanRepository.replacementCount)
         assertEquals(result.mealPlans, mealPlanRepository.savedMealPlans)
+    }
+
+    @Test
+    fun pantryStockCanMakeAnOtherwiseUnaffordablePlanFitBudgetWithoutChangingStock() = runBlocking {
+        ingredientRepository.ingredients = testIngredients()
+        recipeRepository.recipes = testRecipes()
+
+        val savedStock = PantryStock(
+            ingredientId = "test-ingredient",
+            quantity = 4_800.0,
+            unit = MeasurementUnit.GRAM
+        )
+
+        pantryStockRepository.savePantryStock(savedStock)
+
+        val result = useCase(
+            today = today,
+            targetServings = 2,
+            budgetCentavos = 0
+        )
+
+        assertNotNull(result)
+        assertEquals(
+            MealPlanGenerationStatus.GENERATED,
+            result!!.status
+        )
+        assertEquals(48, result.mealPlans.size)
+        assertEquals(0L, result.estimatedPurchaseCostCentavos)
+        assertEquals(0L, result.budgetCentavos)
+
+        // Generating a meal plan must not consume or modify pantry stock.
+        assertEquals(
+            savedStock,
+            pantryStockRepository.getPantryStock("test-ingredient")
+        )
+
+        assertEquals(1, mealPlanRepository.replacementCount)
     }
 
     @Test
@@ -238,6 +280,28 @@ class GeneratePaydayMealPlanUseCaseTest {
             startDate: LocalDate, endDate: LocalDate
         ): Flow<List<PlannedMeal>> {
             return flowOf(emptyList())
+        }
+    }
+
+    private class FakePantryStockRepository : PantryStockRepository {
+        private val stock = mutableMapOf<String, PantryStock>()
+
+        override fun getAllPantryStock(): Flow<List<PantryStock>> =
+            flowOf(stock.values.toList())
+
+        override suspend fun getPantryStock(ingredientId: String): PantryStock? =
+            stock[ingredientId]
+
+        override suspend fun savePantryStock(stock: PantryStock) {
+            this.stock[stock.ingredientId] = stock
+        }
+
+        override suspend fun deletePantryStock(ingredientId: String) {
+            stock.remove(ingredientId)
+        }
+
+        override suspend fun clearPantryStock() {
+            stock.clear()
         }
     }
 }

@@ -15,7 +15,7 @@ import org.robolectric.RobolectricTestRunner
 class DatabaseMigrationsTest {
 
     @Test
-    fun migrationPreservesIngredientDataAndAddsPurchaseInformation() {
+    fun migrationsPreserveExistingDataAndCreatePantryWithCascadeDelete() {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
         val callback = object : SupportSQLiteOpenHelper.Callback(1) {
@@ -57,7 +57,7 @@ class DatabaseMigrationsTest {
                 oldVersion: Int,
                 newVersion: Int
             ) {
-                // No upgrade is needed when creating a version 1 database.
+                // Migrations are invoked explicitly in this test.
             }
         }
 
@@ -72,6 +72,8 @@ class DatabaseMigrationsTest {
 
         try {
             val db = helper.writableDatabase
+
+            db.execSQL("PRAGMA foreign_keys = ON")
 
             db.execSQL(
                 """
@@ -94,8 +96,13 @@ class DatabaseMigrationsTest {
                 """.trimIndent()
             )
 
+            // Upgrade version 1 to version 2.
             DatabaseMigrations.MIGRATION_1_2.migrate(db)
 
+            // Upgrade version 2 to version 3.
+            DatabaseMigrations.MIGRATION_2_3.migrate(db)
+
+            // Existing ingredient data and purchase information survive.
             db.query(
                 """
                 SELECT
@@ -119,12 +126,53 @@ class DatabaseMigrationsTest {
                 assertEquals("KILOGRAM", cursor.getString(5))
             }
 
+            // Existing meal plans remain intact.
             db.query(
                 "SELECT COUNT(*) FROM meal_plans"
             ).use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals(1, cursor.getInt(0))
             }
+
+            // The new pantry table starts empty.
+            db.query(
+                "SELECT COUNT(*) FROM pantry_stock"
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+
+            // Pantry stock can reference an existing ingredient.
+            db.execSQL(
+                """
+                INSERT INTO pantry_stock (
+                    ingredientId,
+                    quantity,
+                    unit
+                )
+                VALUES ('chicken', 500.0, 'GRAM')
+                """.trimIndent()
+            )
+
+            db.query(
+                "SELECT COUNT(*) FROM pantry_stock"
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1, cursor.getInt(0))
+            }
+
+            // Deleting an ingredient automatically deletes its pantry stock.
+            db.execSQL(
+                "DELETE FROM ingredients WHERE id = 'chicken'"
+            )
+
+            db.query(
+                "SELECT COUNT(*) FROM pantry_stock"
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+
         } finally {
             helper.close()
         }

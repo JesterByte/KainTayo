@@ -6,6 +6,7 @@ import com.example.kaintayo.data.local.KainTayoDatabaseProvider
 import com.example.kaintayo.data.local.KainTayoPreferences
 import com.example.kaintayo.data.repository.IngredientRepositoryImpl
 import com.example.kaintayo.data.repository.MealPlanRepositoryImpl
+import com.example.kaintayo.data.repository.PantryStockRepositoryImpl
 import com.example.kaintayo.data.repository.RecipeRepositoryImpl
 import com.example.kaintayo.domain.usecase.GeneratePaydayMealPlanUseCase
 import com.example.kaintayo.domain.usecase.GetPaydayGroceryListUseCase
@@ -21,6 +22,10 @@ class KainTayoAppContainer(context: Context) {
         database.ingredientDao()
     )
 
+    val pantryStockRepository = PantryStockRepositoryImpl(
+        database.pantryStockDao()
+    )
+
     val recipeRepository = RecipeRepositoryImpl(
         database.recipeDao()
     )
@@ -29,18 +34,19 @@ class KainTayoAppContainer(context: Context) {
         database.mealPlanDao()
     )
 
-    val generatePaydayMealPlanUseCase =
-        GeneratePaydayMealPlanUseCase(
-            ingredientRepository = ingredientRepository,
-            recipeRepository = recipeRepository,
-            mealPlanRepository = mealPlanRepository
-        )
+    val generatePaydayMealPlanUseCase = GeneratePaydayMealPlanUseCase(
+        ingredientRepository = ingredientRepository,
+        recipeRepository = recipeRepository,
+        mealPlanRepository = mealPlanRepository,
+        pantryStockRepository = pantryStockRepository
+    )
 
     val getPaydayGroceryListUseCase =
         GetPaydayGroceryListUseCase(
             mealPlanRepository = mealPlanRepository,
             recipeRepository = recipeRepository,
-            ingredientRepository = ingredientRepository
+            ingredientRepository = ingredientRepository,
+            pantryStockRepository = pantryStockRepository
         )
 
     suspend fun seedCatalog() {

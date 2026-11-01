@@ -11,6 +11,7 @@ import com.example.kaintayo.domain.model.Ingredient
 import com.example.kaintayo.domain.model.MealPlan
 import com.example.kaintayo.domain.model.MealType
 import com.example.kaintayo.domain.model.MeasurementUnit
+import com.example.kaintayo.domain.model.PantryStock
 import com.example.kaintayo.domain.model.Recipe
 import com.example.kaintayo.domain.model.RecipeIngredient
 import kotlinx.coroutines.flow.first
@@ -33,6 +34,7 @@ class RepositoryIntegrationTest {
     private lateinit var ingredientRepository: IngredientRepositoryImpl
     private lateinit var recipeRepository: RecipeRepositoryImpl
     private lateinit var mealPlanRepository: MealPlanRepositoryImpl
+    private lateinit var pantryStockRepository: PantryStockRepositoryImpl
 
     private lateinit var catalogSeeder: FilipinoCatalogSeeder
 
@@ -55,6 +57,10 @@ class RepositoryIntegrationTest {
 
         mealPlanRepository = MealPlanRepositoryImpl(
             database.mealPlanDao()
+        )
+
+        pantryStockRepository = PantryStockRepositoryImpl(
+            database.pantryStockDao()
         )
 
         catalogSeeder = FilipinoCatalogSeeder(
@@ -703,4 +709,149 @@ class RepositoryIntegrationTest {
 
         assertTrue(result.isEmpty())
     }
+
+
+    @Test
+    fun pantryStockCanBeSavedAndRetrieved() = runBlocking {
+        ingredientRepository.saveIngredient(
+            Ingredient(
+                id = "rice",
+                name = "Rice",
+                defaultUnit = MeasurementUnit.GRAM,
+                estimatedPriceCentavos = 6000,
+                priceQuantity = 1.0,
+                priceUnit = MeasurementUnit.KILOGRAM
+            )
+        )
+
+        val stock = PantryStock(
+            ingredientId = "rice",
+            quantity = 500.0,
+            unit = MeasurementUnit.GRAM
+        )
+
+        pantryStockRepository.savePantryStock(stock)
+
+        val result = pantryStockRepository.getPantryStock("rice")
+
+        assertEquals(stock, result)
+    }
+
+    @Test
+    fun updatingPantryStockDoesNotCreateDuplicates() = runBlocking {
+        ingredientRepository.saveIngredient(
+            Ingredient(
+                id = "rice",
+                name = "Rice",
+                defaultUnit = MeasurementUnit.GRAM,
+                estimatedPriceCentavos = 6000,
+                priceQuantity = 1.0,
+                priceUnit = MeasurementUnit.KILOGRAM
+            )
+        )
+
+        pantryStockRepository.savePantryStock(
+            PantryStock(
+                ingredientId = "rice",
+                quantity = 500.0,
+                unit = MeasurementUnit.GRAM
+            )
+        )
+
+        val updatedStock = PantryStock(
+            ingredientId = "rice",
+            quantity = 1.0,
+            unit = MeasurementUnit.KILOGRAM
+        )
+
+        pantryStockRepository.savePantryStock(updatedStock)
+
+        val result = pantryStockRepository.getAllPantryStock().first()
+
+        assertEquals(1, result.size)
+        assertEquals(updatedStock, result.first())
+    }
+
+    @Test
+    fun pantryStockFlowObservesSavedChanges() = runBlocking {
+        ingredientRepository.saveIngredient(
+            Ingredient(
+                id = "egg",
+                name = "Egg",
+                defaultUnit = MeasurementUnit.PIECE,
+                estimatedPriceCentavos = 1000,
+                priceQuantity = 1.0,
+                priceUnit = MeasurementUnit.PIECE
+            )
+        )
+
+        pantryStockRepository.savePantryStock(
+            PantryStock(
+                ingredientId = "egg",
+                quantity = 2.0,
+                unit = MeasurementUnit.PIECE
+            )
+        )
+
+        val result = pantryStockRepository.getAllPantryStock().first()
+
+        assertEquals(1, result.size)
+        assertEquals("egg", result.first().ingredientId)
+        assertEquals(2.0, result.first().quantity, 0.0001)
+    }
+
+    @Test
+    fun pantryStockCanBeDeleted() = runBlocking {
+        ingredientRepository.saveIngredient(
+            Ingredient(
+                id = "oil",
+                name = "Cooking Oil",
+                defaultUnit = MeasurementUnit.MILLILITER,
+                estimatedPriceCentavos = 15000,
+                priceQuantity = 1.0,
+                priceUnit = MeasurementUnit.LITER
+            )
+        )
+
+        pantryStockRepository.savePantryStock(
+            PantryStock(
+                ingredientId = "oil",
+                quantity = 250.0,
+                unit = MeasurementUnit.MILLILITER
+            )
+        )
+
+        pantryStockRepository.deletePantryStock("oil")
+
+        assertNull(pantryStockRepository.getPantryStock("oil"))
+        assertTrue(pantryStockRepository.getAllPantryStock().first().isEmpty())
+    }
+
+    @Test
+    fun deletingIngredientAlsoDeletesItsPantryStock() = runBlocking {
+        ingredientRepository.saveIngredient(
+            Ingredient(
+                id = "chicken",
+                name = "Chicken",
+                defaultUnit = MeasurementUnit.KILOGRAM,
+                estimatedPriceCentavos = 21000,
+                priceQuantity = 1.0,
+                priceUnit = MeasurementUnit.KILOGRAM
+            )
+        )
+
+        pantryStockRepository.savePantryStock(
+            PantryStock(
+                ingredientId = "chicken",
+                quantity = 500.0,
+                unit = MeasurementUnit.GRAM
+            )
+        )
+
+        ingredientRepository.deleteIngredient("chicken")
+
+        assertNull(pantryStockRepository.getPantryStock("chicken"))
+        assertTrue(pantryStockRepository.getAllPantryStock().first().isEmpty())
+    }
+
 }
