@@ -1,4 +1,3 @@
-
 package com.example.kaintayo.domain.usecase
 
 import com.example.kaintayo.domain.model.BudgetStatus
@@ -41,14 +40,9 @@ class MealPlanGroceryEstimateUseCaseTest {
         servings = 2,
         ingredients = listOf(
             RecipeIngredient(
-                "chicken",
-                500.0,
-                MeasurementUnit.GRAM
-            ),
-            RecipeIngredient(
-                "sayote",
-                1.0,
-                MeasurementUnit.PIECE
+                "chicken", 500.0, MeasurementUnit.GRAM
+            ), RecipeIngredient(
+                "sayote", 1.0, MeasurementUnit.PIECE
             )
         ),
         instructions = listOf("Cook chicken.", "Add sayote."),
@@ -63,14 +57,9 @@ class MealPlanGroceryEstimateUseCaseTest {
         servings = 4,
         ingredients = listOf(
             RecipeIngredient(
-                "chicken",
-                1.0,
-                MeasurementUnit.KILOGRAM
-            ),
-            RecipeIngredient(
-                "sayote",
-                2.0,
-                MeasurementUnit.PIECE
+                "chicken", 1.0, MeasurementUnit.KILOGRAM
+            ), RecipeIngredient(
+                "sayote", 2.0, MeasurementUnit.PIECE
             )
         ),
         instructions = listOf("Simmer chicken."),
@@ -90,38 +79,29 @@ class MealPlanGroceryEstimateUseCaseTest {
         // Adobo: 1,000 g chicken and 2 sayote.
         // Total: 2 kg chicken and 4 sayote.
         assertEquals(
-            2000.0,
-            result.groceryCost.items[0].quantity,
-            0.0001
+            2000.0, result.groceryCost.items[0].quantity, 0.0001
         )
 
         assertEquals(
-            4.0,
-            result.groceryCost.items[1].quantity,
-            0.0001
+            4.0, result.groceryCost.items[1].quantity, 0.0001
         )
 
         // Chicken: 2 x 15,000 centavos.
         // Sayote: 4 x 1,500 centavos.
         assertEquals(
-            36000.0,
-            result.groceryCost.totalCostCentavos,
-            0.0001
+            36000.0, result.groceryCost.totalCostCentavos, 0.0001
         )
 
         assertEquals(
-            36000L,
-            result.budgetAssessment.estimatedCostCentavos
+            36000L, result.budgetAssessment.estimatedCostCentavos
         )
 
         assertEquals(
-            14000L,
-            result.budgetAssessment.remainingBudgetCentavos
+            14000L, result.budgetAssessment.remainingBudgetCentavos
         )
 
         assertEquals(
-            BudgetStatus.WITHIN_BUDGET,
-            result.budgetAssessment.status
+            BudgetStatus.WITHIN_BUDGET, result.budgetAssessment.status
         )
     }
 
@@ -135,13 +115,11 @@ class MealPlanGroceryEstimateUseCaseTest {
         )!!
 
         assertEquals(
-            BudgetStatus.OVER_BUDGET,
-            result.budgetAssessment.status
+            BudgetStatus.OVER_BUDGET, result.budgetAssessment.status
         )
 
         assertEquals(
-            -6000L,
-            result.budgetAssessment.remainingBudgetCentavos
+            -6000L, result.budgetAssessment.remainingBudgetCentavos
         )
     }
 
@@ -203,30 +181,58 @@ class MealPlanGroceryEstimateUseCaseTest {
         )!!
 
         assertEquals(
-            36000.0,
-            result.groceryCost.totalCostCentavos,
-            0.0001
+            36000.0, result.groceryCost.totalCostCentavos, 0.0001
         )
 
         assertEquals(
-            36000.0,
-            result.purchaseEstimate.totalCostCentavos,
-            0.0001
+            36000.0, result.purchaseEstimate.totalCostCentavos, 0.0001
         )
 
         assertEquals(
-            36000L,
-            result.budgetAssessment.estimatedCostCentavos
+            36000L, result.budgetAssessment.estimatedCostCentavos
         )
 
         assertEquals(
-            -16000L,
-            result.budgetAssessment.remainingBudgetCentavos
+            -16000L, result.budgetAssessment.remainingBudgetCentavos
         )
 
         assertEquals(
-            BudgetStatus.OVER_BUDGET,
-            result.budgetAssessment.status
+            BudgetStatus.OVER_BUDGET, result.budgetAssessment.status
         )
     }
+
+
+    @Test
+    fun distinguishesRecipeConsumptionCostFromWholePackagePurchaseCost() {
+        val result = MealPlanGroceryEstimateUseCase.estimate(
+            recipes = listOf(tinola),
+            targetServings = 2,
+            ingredientCatalog = catalog,
+            budgetCentavos = 20000L
+        )!!
+
+        // Consumption cost: ₱75 chicken + ₱15 sayote.
+        assertEquals(
+            9000.0, result.groceryCost.totalCostCentavos, 0.0001
+        )
+
+        // Purchase cost: ₱150 chicken + ₱15 sayote.
+        assertEquals(
+            16500.0, result.purchaseEstimate.totalCostCentavos, 0.0001
+        )
+
+        // Budget assessment must use the full purchase cost.
+        assertEquals(
+            16500L, result.budgetAssessment.estimatedCostCentavos
+        )
+
+        assertEquals(
+            3500L, result.budgetAssessment.remainingBudgetCentavos
+        )
+
+        assertEquals(
+            BudgetStatus.WITHIN_BUDGET, result.budgetAssessment.status
+        )
+    }
+
 }
