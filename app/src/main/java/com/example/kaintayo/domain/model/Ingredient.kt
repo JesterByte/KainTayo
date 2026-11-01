@@ -6,5 +6,7 @@ data class Ingredient(
     val defaultUnit: MeasurementUnit,
     val estimatedPriceCentavos: Long,
     val priceQuantity: Double,
-    val priceUnit: MeasurementUnit
+    val priceUnit: MeasurementUnit,
+    val purchaseQuantity: Double = priceQuantity,
+    val purchaseUnit: MeasurementUnit = priceUnit
 )

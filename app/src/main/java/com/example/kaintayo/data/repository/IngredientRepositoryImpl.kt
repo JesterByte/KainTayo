@@ -38,13 +38,16 @@ class IngredientRepositoryImpl(
         ingredientDao.deleteIngredient(ingredient)
     }
 
+
     private fun IngredientEntity.toDomain() = Ingredient(
         id = id,
         name = name,
         defaultUnit = defaultUnit,
         estimatedPriceCentavos = estimatedPriceCentavos,
         priceQuantity = priceQuantity,
-        priceUnit = priceUnit
+        priceUnit = priceUnit,
+        purchaseQuantity = purchaseQuantity,
+        purchaseUnit = purchaseUnit
     )
 
     private fun Ingredient.toEntity() = IngredientEntity(
@@ -53,6 +56,8 @@ class IngredientRepositoryImpl(
         defaultUnit = defaultUnit,
         estimatedPriceCentavos = estimatedPriceCentavos,
         priceQuantity = priceQuantity,
-        priceUnit = priceUnit
+        priceUnit = priceUnit,
+        purchaseQuantity = purchaseQuantity,
+        purchaseUnit = purchaseUnit
     )
 }

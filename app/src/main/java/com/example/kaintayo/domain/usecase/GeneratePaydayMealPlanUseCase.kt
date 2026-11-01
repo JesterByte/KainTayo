@@ -19,7 +19,7 @@ data class PaydayMealPlanGenerationResult(
     val cycle: PaydayCycle,
     val status: MealPlanGenerationStatus,
     val mealPlans: List<MealPlan>,
-    val minimumEstimatedCostCentavos: Long?,
+    val estimatedPurchaseCostCentavos: Long?,
     val budgetCentavos: Long
 )
 
@@ -67,7 +67,7 @@ class GeneratePaydayMealPlanUseCase(
                 cycle = cycle,
                 status = MealPlanGenerationStatus.CANNOT_GENERATE,
                 mealPlans = emptyList(),
-                minimumEstimatedCostCentavos = null,
+                estimatedPurchaseCostCentavos = null,
                 budgetCentavos = budgetCentavos
             )
         }
@@ -77,8 +77,8 @@ class GeneratePaydayMealPlanUseCase(
                 cycle = cycle,
                 status = MealPlanGenerationStatus.OVER_BUDGET,
                 mealPlans = emptyList(),
-                minimumEstimatedCostCentavos =
-                    optimizedPlan.minimumEstimatedCostCentavos,
+                estimatedPurchaseCostCentavos =
+                    optimizedPlan.estimatedPurchaseCostCentavos,
                 budgetCentavos = budgetCentavos
             )
         }
@@ -93,8 +93,8 @@ class GeneratePaydayMealPlanUseCase(
             cycle = cycle,
             status = MealPlanGenerationStatus.GENERATED,
             mealPlans = optimizedPlan.mealPlans,
-            minimumEstimatedCostCentavos =
-                optimizedPlan.minimumEstimatedCostCentavos,
+            estimatedPurchaseCostCentavos =
+                optimizedPlan.estimatedPurchaseCostCentavos,
             budgetCentavos = budgetCentavos
         )
     }

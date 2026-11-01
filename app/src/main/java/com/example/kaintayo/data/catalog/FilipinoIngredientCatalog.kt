@@ -6,6 +6,7 @@ import kotlin.math.roundToLong
 
 object FilipinoIngredientCatalog {
 
+    // Purchase one whole kilogram.
     private fun perKg(
         id: String,
         name: String,
@@ -16,9 +17,12 @@ object FilipinoIngredientCatalog {
         defaultUnit = MeasurementUnit.GRAM,
         estimatedPriceCentavos = (pricePesos * 100).roundToLong(),
         priceQuantity = 1.0,
-        priceUnit = MeasurementUnit.KILOGRAM
+        priceUnit = MeasurementUnit.KILOGRAM,
+        purchaseQuantity = 1.0,
+        purchaseUnit = MeasurementUnit.KILOGRAM
     )
 
+    // Purchase one whole 1-liter bottle.
     private fun perLiter(
         id: String,
         name: String,
@@ -29,9 +33,12 @@ object FilipinoIngredientCatalog {
         defaultUnit = MeasurementUnit.MILLILITER,
         estimatedPriceCentavos = (pricePesos * 100).roundToLong(),
         priceQuantity = 1.0,
-        priceUnit = MeasurementUnit.LITER
+        priceUnit = MeasurementUnit.LITER,
+        purchaseQuantity = 1.0,
+        purchaseUnit = MeasurementUnit.LITER
     )
 
+    // Purchase individual pieces.
     private fun perPiece(
         id: String,
         name: String,
@@ -42,9 +49,12 @@ object FilipinoIngredientCatalog {
         defaultUnit = MeasurementUnit.PIECE,
         estimatedPriceCentavos = (pricePesos * 100).roundToLong(),
         priceQuantity = 1.0,
-        priceUnit = MeasurementUnit.PIECE
+        priceUnit = MeasurementUnit.PIECE,
+        purchaseQuantity = 1.0,
+        purchaseUnit = MeasurementUnit.PIECE
     )
 
+    // Purchase whole packs.
     private fun perPack(
         id: String,
         name: String,
@@ -55,9 +65,12 @@ object FilipinoIngredientCatalog {
         defaultUnit = MeasurementUnit.PACK,
         estimatedPriceCentavos = (pricePesos * 100).roundToLong(),
         priceQuantity = 1.0,
-        priceUnit = MeasurementUnit.PACK
+        priceUnit = MeasurementUnit.PACK,
+        purchaseQuantity = 1.0,
+        purchaseUnit = MeasurementUnit.PACK
     )
 
+    // Purchase whole 100-gram packages.
     private fun per100g(
         id: String,
         name: String,
@@ -68,7 +81,9 @@ object FilipinoIngredientCatalog {
         defaultUnit = MeasurementUnit.GRAM,
         estimatedPriceCentavos = (pricePesos * 100).roundToLong(),
         priceQuantity = 100.0,
-        priceUnit = MeasurementUnit.GRAM
+        priceUnit = MeasurementUnit.GRAM,
+        purchaseQuantity = 100.0,
+        purchaseUnit = MeasurementUnit.GRAM
     )
 
     val ingredients = listOf(

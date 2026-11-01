@@ -92,7 +92,7 @@ class BudgetAwareMealPlanGeneratorUseCaseTest {
         assertNotNull(result)
         assertTrue(result!!.fitsBudget)
         assertEquals(4, result.mealPlans.size)
-        assertEquals(10000L, result.minimumEstimatedCostCentavos)
+        assertEquals(10000L, result.estimatedPurchaseCostCentavos)
         assertEquals(0L, result.remainingBudgetCentavos)
     }
 
@@ -114,7 +114,7 @@ class BudgetAwareMealPlanGeneratorUseCaseTest {
         assertNotNull(result)
         assertFalse(result!!.fitsBudget)
         assertTrue(result.mealPlans.isEmpty())
-        assertEquals(10000L, result.minimumEstimatedCostCentavos)
+        assertEquals(10000L, result.estimatedPurchaseCostCentavos)
         assertEquals(-1L, result.remainingBudgetCentavos)
     }
 
@@ -180,7 +180,7 @@ class BudgetAwareMealPlanGeneratorUseCaseTest {
         assertNotNull(result)
         assertTrue(result!!.fitsBudget)
         assertEquals(12, result.mealPlans.size)
-        assertEquals(24000L, result.minimumEstimatedCostCentavos)
+        assertEquals(24000L, result.estimatedPurchaseCostCentavos)
     }
 
     @Test
@@ -200,7 +200,7 @@ class BudgetAwareMealPlanGeneratorUseCaseTest {
         )
 
         assertNotNull(result)
-        assertEquals(8000L, result!!.minimumEstimatedCostCentavos)
+        assertEquals(8000L, result!!.estimatedPurchaseCostCentavos)
     }
 
     @Test
@@ -278,4 +278,82 @@ class BudgetAwareMealPlanGeneratorUseCaseTest {
 
         assertNull(result)
     }
+
+
+    @Test
+    fun consolidatesSharedIngredientsAcrossDifferentMealTypes() {
+        val sharedIngredient = Ingredient(
+            id = "onion",
+            name = "Onion",
+            defaultUnit = MeasurementUnit.GRAM,
+            estimatedPriceCentavos = 1_000,
+            priceQuantity = 1_000.0,
+            priceUnit = MeasurementUnit.GRAM,
+            purchaseQuantity = 1.0,
+            purchaseUnit = MeasurementUnit.KILOGRAM
+        )
+
+        val breakfastRecipe = Recipe(
+            id = "breakfast-onion",
+            name = "Breakfast with Onion",
+            description = "Test breakfast",
+            mealType = MealType.BREAKFAST,
+            servings = 1,
+            ingredients = listOf(
+                RecipeIngredient(
+                    ingredientId = "onion",
+                    quantity = 300.0,
+                    unit = MeasurementUnit.GRAM
+                )
+            ),
+            instructions = listOf("Prepare breakfast."),
+            preparationMinutes = 10
+        )
+
+        val lunchRecipe = Recipe(
+            id = "lunch-onion",
+            name = "Lunch with Onion",
+            description = "Test lunch",
+            mealType = MealType.LUNCH,
+            servings = 1,
+            ingredients = listOf(
+                RecipeIngredient(
+                    ingredientId = "onion",
+                    quantity = 300.0,
+                    unit = MeasurementUnit.GRAM
+                )
+            ),
+            instructions = listOf("Prepare lunch."),
+            preparationMinutes = 15
+        )
+
+        val slots = listOf(
+            MealPlanSlot(
+                date = LocalDate.of(2026, 10, 30),
+                mealType = MealType.BREAKFAST
+            ),
+            MealPlanSlot(
+                date = LocalDate.of(2026, 10, 30),
+                mealType = MealType.LUNCH
+            )
+        )
+
+        val result = BudgetAwareMealPlanGeneratorUseCase.generate(
+            slots = slots,
+            recipes = listOf(breakfastRecipe, lunchRecipe),
+            targetServings = 1,
+            ingredientCatalog = listOf(sharedIngredient),
+            budgetCentavos = 1_000L
+        )
+
+        assertNotNull(result)
+        assertTrue(result!!.fitsBudget)
+        assertEquals(2, result.mealPlans.size)
+
+        // 300 g + 300 g = 600 g.
+        // Both meals share one 1 kg purchase.
+        assertEquals(1_000L, result.estimatedPurchaseCostCentavos)
+        assertEquals(0L, result.remainingBudgetCentavos)
+    }
+
 }

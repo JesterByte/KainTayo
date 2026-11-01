@@ -1,9 +1,9 @@
-
 package com.example.kaintayo.domain.usecase
 
 import com.example.kaintayo.domain.model.Ingredient
 import com.example.kaintayo.domain.model.MealPlanGroceryEstimate
 import com.example.kaintayo.domain.model.Recipe
+import com.example.kaintayo.domain.model.RecipeIngredient
 
 object MealPlanGroceryEstimateUseCase {
 
@@ -14,14 +14,12 @@ object MealPlanGroceryEstimateUseCase {
         budgetCentavos: Long
     ): MealPlanGroceryEstimate? {
 
-        if (recipes.isEmpty() || targetServings <= 0) {
+        if (recipes.isEmpty() || targetServings <= 0 || budgetCentavos < 0L) {
             return null
         }
 
         // Scale every recipe to the household size.
-        val allIngredients = mutableListOf<
-                com.example.kaintayo.domain.model.RecipeIngredient
-                >()
+        val allIngredients = mutableListOf<RecipeIngredient>()
 
         for (recipe in recipes) {
             val scaledRecipe = RecipeScalingUseCase.scaleRecipe(
@@ -38,20 +36,27 @@ object MealPlanGroceryEstimateUseCase {
                 allIngredients
             ) ?: return null
 
-        // Calculate grocery costs using the local ingredient catalog.
+        // Calculate the proportional cost of recipe consumption.
         val groceryCost = GroceryCostCalculatorUseCase.calculate(
             consolidatedIngredients,
             ingredientCatalog
         ) ?: return null
 
-        // Compare the estimated grocery cost with the payday budget.
+        // Calculate the cost of buying complete purchase units.
+        val purchaseEstimate = GroceryPurchaseCalculatorUseCase.calculate(
+            consolidatedIngredients,
+            ingredientCatalog
+        ) ?: return null
+
+        // Compare the actual estimated purchase cost with the budget.
         val budgetAssessment = BudgetAssessmentUseCase.assess(
             budgetCentavos = budgetCentavos,
-            estimatedCostCentavos = groceryCost.totalCostCentavos
+            estimatedCostCentavos = purchaseEstimate.totalCostCentavos
         ) ?: return null
 
         return MealPlanGroceryEstimate(
             groceryCost = groceryCost,
+            purchaseEstimate = purchaseEstimate,
             budgetAssessment = budgetAssessment
         )
     }

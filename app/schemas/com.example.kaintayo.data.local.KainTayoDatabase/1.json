@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "4a90b3e78f3fd8f9598c80105d20d30c",
+    "identityHash": "1e05ad622159c3e371731a3f289c197a",
     "entities": [
       {
         "tableName": "ingredients",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `defaultUnit` TEXT NOT NULL, `estimatedPriceCentavos` INTEGER NOT NULL, `priceQuantity` REAL NOT NULL, `priceUnit` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `defaultUnit` TEXT NOT NULL, `estimatedPriceCentavos` INTEGER NOT NULL, `priceQuantity` REAL NOT NULL, `priceUnit` TEXT NOT NULL, `purchaseQuantity` REAL NOT NULL DEFAULT 1.0, `purchaseUnit` TEXT NOT NULL DEFAULT 'PIECE', PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -43,6 +43,20 @@
             "columnName": "priceUnit",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "purchaseQuantity",
+            "columnName": "purchaseQuantity",
+            "affinity": "REAL",
+            "notNull": true,
+            "defaultValue": "1.0"
+          },
+          {
+            "fieldPath": "purchaseUnit",
+            "columnName": "purchaseUnit",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'PIECE'"
           }
         ],
         "primaryKey": {
@@ -236,7 +250,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4a90b3e78f3fd8f9598c80105d20d30c')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1e05ad622159c3e371731a3f289c197a')"
     ]
   }
 }

@@ -63,7 +63,7 @@ class GeneratePaydayMealPlanUseCaseTest {
         assertEquals(
             LocalDate.of(2026, 11, 14), result.cycle.endDate
         )
-        assertTrue(result.minimumEstimatedCostCentavos!! > 0)
+        assertTrue(result.estimatedPurchaseCostCentavos!! > 0)
 
         assertEquals(1, mealPlanRepository.replacementCount)
         assertEquals(result.mealPlans, mealPlanRepository.savedMealPlans)
@@ -83,7 +83,7 @@ class GeneratePaydayMealPlanUseCaseTest {
             MealPlanGenerationStatus.OVER_BUDGET, result!!.status
         )
         assertTrue(result.mealPlans.isEmpty())
-        assertTrue(result.minimumEstimatedCostCentavos!! > 0)
+        assertTrue(result.estimatedPurchaseCostCentavos!! > 0)
         assertEquals(0, mealPlanRepository.replacementCount)
     }
 
@@ -116,7 +116,7 @@ class GeneratePaydayMealPlanUseCaseTest {
             MealPlanGenerationStatus.CANNOT_GENERATE, result!!.status
         )
         assertTrue(result.mealPlans.isEmpty())
-        assertNull(result.minimumEstimatedCostCentavos)
+        assertNull(result.estimatedPurchaseCostCentavos)
         assertEquals(0, mealPlanRepository.replacementCount)
     }
 
@@ -132,7 +132,7 @@ class GeneratePaydayMealPlanUseCaseTest {
     )
 
     private fun testRecipes(): List<Recipe> {
-        return MealType.values().flatMap { mealType ->
+        return MealType.entries.flatMap { mealType ->
             (1..4).map { index ->
                 Recipe(
                     id = "${mealType.name.lowercase()}-recipe-$index",

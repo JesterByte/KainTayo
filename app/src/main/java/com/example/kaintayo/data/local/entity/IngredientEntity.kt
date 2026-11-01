@@ -1,5 +1,6 @@
 package com.example.kaintayo.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.kaintayo.domain.model.MeasurementUnit
@@ -16,8 +17,15 @@ data class IngredientEntity(
     // Price expressed in centavos.
     val estimatedPriceCentavos: Long,
 
-    // Example: ₱150.00 per 1 kilogram.
+    // Price basis, for example ₱210 per 1 kilogram.
     val priceQuantity: Double,
 
-    val priceUnit: MeasurementUnit
+    val priceUnit: MeasurementUnit,
+
+    // Amount purchased in one whole purchase unit.
+    @ColumnInfo(defaultValue = "1.0")
+    val purchaseQuantity: Double = priceQuantity,
+
+    @ColumnInfo(defaultValue = "'PIECE'")
+    val purchaseUnit: MeasurementUnit = priceUnit
 )
