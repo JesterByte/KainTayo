@@ -563,4 +563,144 @@ class RepositoryIntegrationTest {
                 .first()
         )
     }
+
+    @Test
+    fun plannedMealRetrievesItsRecipeDetails() = runBlocking {
+        val recipe = Recipe(
+            id = "tinolang-manok",
+            name = "Tinolang Manok",
+            description = "Filipino chicken and vegetable soup",
+            mealType = MealType.LUNCH,
+            servings = 4,
+            ingredients = emptyList(),
+            instructions = listOf("Prepare ingredients", "Simmer chicken"),
+            preparationMinutes = 40
+        )
+
+        recipeRepository.saveRecipe(recipe)
+
+        val date = LocalDate.of(2026, 10, 31)
+
+        mealPlanRepository.saveMealPlan(
+            MealPlan(
+                date = date,
+                mealType = MealType.LUNCH,
+                recipeId = recipe.id
+            )
+        )
+
+        val result = mealPlanRepository
+            .getPlannedMealsForPeriod(date, date)
+            .first()
+
+        assertEquals(1, result.size)
+
+        val plannedMeal = result.first()
+
+        assertEquals(date, plannedMeal.date)
+        assertEquals(MealType.LUNCH, plannedMeal.mealType)
+        assertEquals("tinolang-manok", plannedMeal.recipeId)
+        assertEquals("Tinolang Manok", plannedMeal.recipeName)
+        assertEquals(
+            "Filipino chicken and vegetable soup",
+            plannedMeal.description
+        )
+        assertEquals(40, plannedMeal.preparationMinutes)
+    }
+
+    @Test
+    fun plannedMealsAreReturnedInChronologicalOrder() = runBlocking {
+        val breakfast = Recipe(
+            id = "arroz-caldo",
+            name = "Arroz Caldo",
+            description = "Filipino rice porridge",
+            mealType = MealType.BREAKFAST,
+            servings = 4,
+            ingredients = emptyList(),
+            instructions = emptyList(),
+            preparationMinutes = 30
+        )
+
+        val lunch = Recipe(
+            id = "tinolang-manok",
+            name = "Tinolang Manok",
+            description = "Filipino chicken soup",
+            mealType = MealType.LUNCH,
+            servings = 4,
+            ingredients = emptyList(),
+            instructions = emptyList(),
+            preparationMinutes = 40
+        )
+
+        val dinner = Recipe(
+            id = "sinigang-na-isda",
+            name = "Sinigang na Isda",
+            description = "Filipino sour fish soup",
+            mealType = MealType.DINNER,
+            servings = 4,
+            ingredients = emptyList(),
+            instructions = emptyList(),
+            preparationMinutes = 35
+        )
+
+        recipeRepository.saveRecipe(breakfast)
+        recipeRepository.saveRecipe(lunch)
+        recipeRepository.saveRecipe(dinner)
+
+        val firstDate = LocalDate.of(2026, 10, 30)
+        val secondDate = firstDate.plusDays(1)
+
+        mealPlanRepository.saveMealPlans(
+            listOf(
+                MealPlan(secondDate, MealType.DINNER, dinner.id),
+                MealPlan(firstDate, MealType.LUNCH, lunch.id),
+                MealPlan(secondDate, MealType.BREAKFAST, breakfast.id),
+                MealPlan(firstDate, MealType.BREAKFAST, breakfast.id),
+                MealPlan(secondDate, MealType.LUNCH, lunch.id),
+                MealPlan(firstDate, MealType.DINNER, dinner.id)
+            )
+        )
+
+        val result = mealPlanRepository
+            .getPlannedMealsForPeriod(firstDate, secondDate)
+            .first()
+
+        assertEquals(6, result.size)
+
+        assertEquals(
+            listOf(
+                firstDate,
+                firstDate,
+                firstDate,
+                secondDate,
+                secondDate,
+                secondDate
+            ),
+            result.map { it.date }
+        )
+
+        assertEquals(
+            listOf(
+                MealType.BREAKFAST,
+                MealType.LUNCH,
+                MealType.DINNER,
+                MealType.BREAKFAST,
+                MealType.LUNCH,
+                MealType.DINNER
+            ),
+            result.map { it.mealType }
+        )
+    }
+
+    @Test
+    fun plannedMealsReturnsEmptyListWhenPeriodHasNoMeals() = runBlocking {
+        val startDate = LocalDate.of(2026, 10, 30)
+        val endDate = LocalDate.of(2026, 11, 14)
+
+        val result = mealPlanRepository
+            .getPlannedMealsForPeriod(startDate, endDate)
+            .first()
+
+        assertTrue(result.isEmpty())
+    }
 }

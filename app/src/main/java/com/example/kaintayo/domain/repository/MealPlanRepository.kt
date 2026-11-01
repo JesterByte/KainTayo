@@ -1,6 +1,7 @@
 package com.example.kaintayo.domain.repository
 
 import com.example.kaintayo.domain.model.MealPlan
+import com.example.kaintayo.domain.model.PlannedMeal
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
@@ -27,4 +28,9 @@ interface MealPlanRepository {
         endDate: LocalDate,
         mealPlans: List<MealPlan>
     )
+
+    fun getPlannedMealsForPeriod(
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): Flow<List<PlannedMeal>>
 }

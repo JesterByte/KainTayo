@@ -4,6 +4,7 @@ import com.example.kaintayo.domain.model.Ingredient
 import com.example.kaintayo.domain.model.MealPlan
 import com.example.kaintayo.domain.model.MealType
 import com.example.kaintayo.domain.model.MeasurementUnit
+import com.example.kaintayo.domain.model.PlannedMeal
 import com.example.kaintayo.domain.model.Recipe
 import com.example.kaintayo.domain.model.RecipeIngredient
 import com.example.kaintayo.domain.repository.IngredientRepository
@@ -48,24 +49,19 @@ class GeneratePaydayMealPlanUseCaseTest {
         recipeRepository.recipes = testRecipes()
 
         val result = useCase(
-            today = today,
-            targetServings = 2,
-            budgetCentavos = 100_000
+            today = today, targetServings = 2, budgetCentavos = 100_000
         )
 
         assertNotNull(result)
         assertEquals(
-            MealPlanGenerationStatus.GENERATED,
-            result!!.status
+            MealPlanGenerationStatus.GENERATED, result!!.status
         )
         assertEquals(48, result.mealPlans.size)
         assertEquals(
-            LocalDate.of(2026, 10, 30),
-            result.cycle.startDate
+            LocalDate.of(2026, 10, 30), result.cycle.startDate
         )
         assertEquals(
-            LocalDate.of(2026, 11, 14),
-            result.cycle.endDate
+            LocalDate.of(2026, 11, 14), result.cycle.endDate
         )
         assertTrue(result.minimumEstimatedCostCentavos!! > 0)
 
@@ -79,15 +75,12 @@ class GeneratePaydayMealPlanUseCaseTest {
         recipeRepository.recipes = testRecipes()
 
         val result = useCase(
-            today = today,
-            targetServings = 2,
-            budgetCentavos = 0
+            today = today, targetServings = 2, budgetCentavos = 0
         )
 
         assertNotNull(result)
         assertEquals(
-            MealPlanGenerationStatus.OVER_BUDGET,
-            result!!.status
+            MealPlanGenerationStatus.OVER_BUDGET, result!!.status
         )
         assertTrue(result.mealPlans.isEmpty())
         assertTrue(result.minimumEstimatedCostCentavos!! > 0)
@@ -97,15 +90,11 @@ class GeneratePaydayMealPlanUseCaseTest {
     @Test
     fun invalidInputsReturnNullWithoutSaving() = runBlocking {
         val invalidServingsResult = useCase(
-            today = today,
-            targetServings = 0,
-            budgetCentavos = 100_000
+            today = today, targetServings = 0, budgetCentavos = 100_000
         )
 
         val invalidBudgetResult = useCase(
-            today = today,
-            targetServings = 2,
-            budgetCentavos = -1
+            today = today, targetServings = 2, budgetCentavos = -1
         )
 
         assertNull(invalidServingsResult)
@@ -119,15 +108,12 @@ class GeneratePaydayMealPlanUseCaseTest {
         recipeRepository.recipes = emptyList()
 
         val result = useCase(
-            today = today,
-            targetServings = 2,
-            budgetCentavos = 100_000
+            today = today, targetServings = 2, budgetCentavos = 100_000
         )
 
         assertNotNull(result)
         assertEquals(
-            MealPlanGenerationStatus.CANNOT_GENERATE,
-            result!!.status
+            MealPlanGenerationStatus.CANNOT_GENERATE, result!!.status
         )
         assertTrue(result.mealPlans.isEmpty())
         assertNull(result.minimumEstimatedCostCentavos)
@@ -171,15 +157,13 @@ class GeneratePaydayMealPlanUseCaseTest {
     private class FakeIngredientRepository : IngredientRepository {
         var ingredients: List<Ingredient> = emptyList()
 
-        override fun getAllIngredients(): Flow<List<Ingredient>> =
-            flowOf(ingredients)
+        override fun getAllIngredients(): Flow<List<Ingredient>> = flowOf(ingredients)
 
         override suspend fun getIngredientById(id: String): Ingredient? =
             ingredients.find { it.id == id }
 
         override suspend fun saveIngredient(ingredient: Ingredient) {
-            ingredients = ingredients.filterNot { it.id == ingredient.id } +
-                    ingredient
+            ingredients = ingredients.filterNot { it.id == ingredient.id } + ingredient
         }
 
         override suspend fun saveIngredients(ingredients: List<Ingredient>) {
@@ -194,11 +178,9 @@ class GeneratePaydayMealPlanUseCaseTest {
     private class FakeRecipeRepository : RecipeRepository {
         var recipes: List<Recipe> = emptyList()
 
-        override fun getAllRecipes(): Flow<List<Recipe>> =
-            flowOf(recipes)
+        override fun getAllRecipes(): Flow<List<Recipe>> = flowOf(recipes)
 
-        override suspend fun getRecipeById(id: String): Recipe? =
-            recipes.find { it.id == id }
+        override suspend fun getRecipeById(id: String): Recipe? = recipes.find { it.id == id }
 
         override suspend fun saveRecipe(recipe: Recipe) {
             recipes = recipes.filterNot { it.id == recipe.id } + recipe
@@ -215,24 +197,18 @@ class GeneratePaydayMealPlanUseCaseTest {
 
         override fun getMealsForDate(
             date: LocalDate
-        ): Flow<List<MealPlan>> =
-            flowOf(savedMealPlans.filter { it.date == date })
+        ): Flow<List<MealPlan>> = flowOf(savedMealPlans.filter { it.date == date })
 
         override fun getMealsForPeriod(
-            startDate: LocalDate,
-            endDate: LocalDate
-        ): Flow<List<MealPlan>> =
-            flowOf(
-                savedMealPlans.filter {
-                    !it.date.isBefore(startDate) &&
-                            !it.date.isAfter(endDate)
-                }
-            )
+            startDate: LocalDate, endDate: LocalDate
+        ): Flow<List<MealPlan>> = flowOf(
+            savedMealPlans.filter {
+                !it.date.isBefore(startDate) && !it.date.isAfter(endDate)
+            })
 
         override suspend fun saveMealPlan(mealPlan: MealPlan) {
             savedMealPlans = savedMealPlans.filterNot {
-                it.date == mealPlan.date &&
-                        it.mealType == mealPlan.mealType
+                it.date == mealPlan.date && it.mealType == mealPlan.mealType
             } + mealPlan
         }
 
@@ -241,8 +217,7 @@ class GeneratePaydayMealPlanUseCaseTest {
         }
 
         override suspend fun deleteMeal(
-            date: LocalDate,
-            mealType: MealType
+            date: LocalDate, mealType: MealType
         ) {
             savedMealPlans = savedMealPlans.filterNot {
                 it.date == date && it.mealType == mealType
@@ -250,16 +225,19 @@ class GeneratePaydayMealPlanUseCaseTest {
         }
 
         override suspend fun replaceMealPlansForPeriod(
-            startDate: LocalDate,
-            endDate: LocalDate,
-            mealPlans: List<MealPlan>
+            startDate: LocalDate, endDate: LocalDate, mealPlans: List<MealPlan>
         ) {
             replacementCount++
 
             savedMealPlans = savedMealPlans.filterNot {
-                !it.date.isBefore(startDate) &&
-                        !it.date.isAfter(endDate)
+                !it.date.isBefore(startDate) && !it.date.isAfter(endDate)
             } + mealPlans
+        }
+
+        override fun getPlannedMealsForPeriod(
+            startDate: LocalDate, endDate: LocalDate
+        ): Flow<List<PlannedMeal>> {
+            return flowOf(emptyList())
         }
     }
 }

@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import com.example.kaintayo.data.local.entity.MealPlanEntity
+import com.example.kaintayo.data.local.entity.MealPlanWithRecipeEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -15,7 +16,13 @@ interface MealPlanDao {
         """
         SELECT * FROM meal_plans
         WHERE date = :date
-        ORDER BY mealType ASC
+        ORDER BY
+        CASE mealType
+            WHEN 'BREAKFAST' THEN 0
+            WHEN 'LUNCH' THEN 1
+            WHEN 'DINNER' THEN 2
+            ELSE 3
+        END
         """
     )
     fun getMealsForDate(date: String): Flow<List<MealPlanEntity>>
@@ -24,7 +31,13 @@ interface MealPlanDao {
         """
         SELECT * FROM meal_plans
         WHERE date BETWEEN :startDate AND :endDate
-        ORDER BY date ASC, mealType ASC
+        ORDER BY date ASC,
+        CASE mealType
+            WHEN 'BREAKFAST' THEN 0
+            WHEN 'LUNCH' THEN 1
+            WHEN 'DINNER' THEN 2
+            ELSE 3
+        END
         """
     )
     fun getMealsForPeriod(
@@ -72,4 +85,23 @@ interface MealPlanDao {
             insertMealPlans(mealPlans)
         }
     }
+
+    @Transaction
+    @Query(
+        """
+    SELECT * FROM meal_plans
+    WHERE date BETWEEN :startDate AND :endDate
+    ORDER BY date ASC,
+    CASE mealType
+        WHEN 'BREAKFAST' THEN 0
+        WHEN 'LUNCH' THEN 1
+        WHEN 'DINNER' THEN 2
+        ELSE 3
+    END
+    """
+    )
+    fun getPlannedMealsForPeriod(
+        startDate: String,
+        endDate: String
+    ): Flow<List<MealPlanWithRecipeEntity>>
 }

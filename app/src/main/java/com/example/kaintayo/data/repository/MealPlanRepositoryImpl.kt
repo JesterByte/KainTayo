@@ -4,6 +4,7 @@ import com.example.kaintayo.data.local.dao.MealPlanDao
 import com.example.kaintayo.data.local.entity.MealPlanEntity
 import com.example.kaintayo.domain.model.MealPlan
 import com.example.kaintayo.domain.model.MealType
+import com.example.kaintayo.domain.model.PlannedMeal
 import com.example.kaintayo.domain.repository.MealPlanRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -91,5 +92,31 @@ class MealPlanRepositoryImpl(
             endDate = endDate.toString(),
             mealPlans = mealPlans.map { it.toEntity() }
         )
+    }
+
+    override fun getPlannedMealsForPeriod(
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): Flow<List<PlannedMeal>> {
+
+        require(!endDate.isBefore(startDate)) {
+            "End date cannot be before start date."
+        }
+
+        return mealPlanDao.getPlannedMealsForPeriod(
+            startDate = startDate.toString(),
+            endDate = endDate.toString()
+        ).map { entries ->
+            entries.map { entry ->
+                PlannedMeal(
+                    date = LocalDate.parse(entry.mealPlan.date),
+                    mealType = entry.mealPlan.mealType,
+                    recipeId = entry.mealPlan.recipeId,
+                    recipeName = entry.recipe.name,
+                    description = entry.recipe.description,
+                    preparationMinutes = entry.recipe.preparationMinutes
+                )
+            }
+        }
     }
 }
