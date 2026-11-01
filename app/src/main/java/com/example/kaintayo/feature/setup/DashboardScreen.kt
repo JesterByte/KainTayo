@@ -1,3 +1,4 @@
+
 package com.example.kaintayo.feature.setup
 
 import android.widget.Toast
@@ -11,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +35,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.NonInteractiveSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import com.example.kaintayo.KainTayoAppContainer
+import com.example.kaintayo.data.KainTayoAppContainer
 import com.example.kaintayo.core.time.PaydayCycleCalculator
 import com.example.kaintayo.domain.usecase.MealPlanGenerationStatus
 import com.example.kaintayo.feature.groceries.GroceryListScreen
@@ -54,67 +57,40 @@ import java.util.Locale
 fun DashboardScreen(appContainer: KainTayoAppContainer) {
 
     val context = LocalContext.current
-
     val coroutineScope = rememberCoroutineScope()
 
-    var showBudgetSetup by remember {
-        mutableStateOf(false)
-    }
+    var showBudgetSetup by remember { mutableStateOf(false) }
+    var showMealPlan by remember { mutableStateOf(false) }
+    var showGroceryList by remember { mutableStateOf(false) }
 
-    var showMealPlan by remember {
-        mutableStateOf(false)
-    }
-
-    var showGroceryList by remember {
-        mutableStateOf(false)
-    }
-
-    var generationMessage by remember {
-        mutableStateOf<String?>(null)
-    }
-
-    var isGenerating by remember {
-        mutableStateOf(false)
-    }
+    var generationMessage by remember { mutableStateOf<String?>(null) }
+    var isGenerating by remember { mutableStateOf(false) }
 
     val today = LocalDate.now()
     val cycle = remember(today) {
         PaydayCycleCalculator.getCurrentCycle(today)
     }
 
-    val dateFormatter =
-        DateTimeFormatter.ofPattern("MMMM d", Locale.ENGLISH)
-
+    val dateFormatter = DateTimeFormatter.ofPattern("MMMM d", Locale.ENGLISH)
     val currentDate = today.format(
-        DateTimeFormatter.ofPattern(
-            "EEEE · MMMM d",
-            Locale.ENGLISH
-        )
+        DateTimeFormatter.ofPattern("EEEE · MMMM d", Locale.ENGLISH)
     )
-
-    val cycleRange =
-        "${cycle.startDate.format(dateFormatter)} – " +
-                cycle.endDate.format(dateFormatter)
+    val cycleRange = "${cycle.startDate.format(dateFormatter)} – " +
+            cycle.endDate.format(dateFormatter)
 
     if (showMealPlan) {
         MealPlanScreen(
             appContainer = appContainer,
-            onBack = {
-                showMealPlan = false
-            }
+            onBack = { showMealPlan = false }
         )
-
         return
     }
 
     if (showGroceryList) {
         GroceryListScreen(
             appContainer = appContainer,
-            onBack = {
-                showGroceryList = false
-            }
+            onBack = { showGroceryList = false }
         )
-
         return
     }
 
@@ -122,19 +98,11 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
         BudgetSetupScreen(
             initialBudgetCentavos = appContainer.preferences.getBudgetCentavos(),
             initialHouseholdSize = appContainer.preferences.getHouseholdSize(),
-            onBack = {
-                showBudgetSetup = false
-            },
+            onBack = { showBudgetSetup = false },
             onGenerate = { budgetCentavos, householdSize ->
-
                 if (!isGenerating) {
-                    appContainer.preferences.saveBudgetCentavos(
-                        budgetCentavos
-                    )
-
-                    appContainer.preferences.saveHouseholdSize(
-                        householdSize
-                    )
+                    appContainer.preferences.saveBudgetCentavos(budgetCentavos)
+                    appContainer.preferences.saveHouseholdSize(householdSize)
 
                     isGenerating = true
                     generationMessage = "Generating your meal plan..."
@@ -168,7 +136,6 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
                             if (exception is kotlinx.coroutines.CancellationException) {
                                 throw exception
                             }
-
                             generationMessage =
                                 "Something went wrong while generating your plan."
                         } finally {
@@ -178,21 +145,22 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
                 }
             }
         )
-
         return
     }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        colors = NonInteractiveSurfaceDefaults.colors(containerColor = KainBackground)
+        colors = NonInteractiveSurfaceDefaults.colors(
+            containerColor = KainBackground
+        )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 48.dp, vertical = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(horizontal = 48.dp, vertical = 28.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-
             // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -279,7 +247,7 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
                 )
             }
 
-            // Dashboard menu
+            // Dashboard menu - Row 1
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -305,6 +273,7 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
                 }
             }
 
+            // Dashboard menu - Row 2
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -332,13 +301,16 @@ fun DashboardScreen(appContainer: KainTayoAppContainer) {
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(12.dp))
 
+            // Footer navigation hint
             Text(
                 "Use your TV remote to navigate",
                 color = KainTextSecondary,
                 fontSize = 12.sp
             )
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -378,7 +350,6 @@ private fun DashboardCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-
             Text(
                 text = symbol,
                 fontSize = 30.sp

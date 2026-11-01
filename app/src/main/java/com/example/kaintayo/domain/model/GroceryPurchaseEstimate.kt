@@ -1,3 +1,4 @@
+
 package com.example.kaintayo.domain.model
 
 data class GroceryPurchaseItem(
@@ -8,11 +9,7 @@ data class GroceryPurchaseItem(
     val requiredQuantity: Double,
     val requiredUnit: MeasurementUnit,
 
-    // Amount already available in the pantry,
-    // converted to the required unit.
-    val availableQuantity: Double,
-
-    // Remaining amount needed after using pantry stock.
+    // Full amount to purchase, before whole-package rounding.
     val quantityToPurchase: Double,
 
     // Size of one purchase unit, such as 1 kg or 1 liter.

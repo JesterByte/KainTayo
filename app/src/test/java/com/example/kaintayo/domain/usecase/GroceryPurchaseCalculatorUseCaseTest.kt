@@ -1,9 +1,9 @@
+
 package com.example.kaintayo.domain.usecase
 
 import com.example.kaintayo.domain.model.ConsolidatedIngredient
 import com.example.kaintayo.domain.model.Ingredient
 import com.example.kaintayo.domain.model.MeasurementUnit
-import com.example.kaintayo.domain.model.PantryStock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -215,27 +215,8 @@ class GroceryPurchaseCalculatorUseCaseTest {
         assertNull(result)
     }
 
-    private fun ingredient(
-        id: String,
-        name: String,
-        price: Long,
-        priceQuantity: Double,
-        priceUnit: MeasurementUnit,
-        purchaseQuantity: Double,
-        purchaseUnit: MeasurementUnit
-    ) = Ingredient(
-        id = id,
-        name = name,
-        defaultUnit = priceUnit,
-        estimatedPriceCentavos = price,
-        priceQuantity = priceQuantity,
-        priceUnit = priceUnit,
-        purchaseQuantity = purchaseQuantity,
-        purchaseUnit = purchaseUnit
-    )
-
     @Test
-    fun subtractsPantryStockBeforeRoundingPurchase() {
+    fun purchasesFullRiceRequirementWithoutPantryDeduction() {
         val rice = ingredient(
             id = "rice",
             name = "Rice",
@@ -254,14 +235,7 @@ class GroceryPurchaseCalculatorUseCaseTest {
                     unit = MeasurementUnit.GRAM
                 )
             ),
-            ingredientCatalog = listOf(rice),
-            pantryStock = listOf(
-                PantryStock(
-                    ingredientId = "rice",
-                    quantity = 500.0,
-                    unit = MeasurementUnit.GRAM
-                )
-            )
+            ingredientCatalog = listOf(rice)
         )
 
         assertNotNull(result)
@@ -269,98 +243,14 @@ class GroceryPurchaseCalculatorUseCaseTest {
         val item = result!!.items.first()
 
         assertEquals(1500.0, item.requiredQuantity, 0.0001)
-        assertEquals(500.0, item.availableQuantity, 0.0001)
-        assertEquals(1000.0, item.quantityToPurchase, 0.0001)
-        assertEquals(1L, item.purchaseCount)
-        assertEquals(1.0, item.purchasedQuantity, 0.0001)
-        assertEquals(6000.0, result.totalCostCentavos, 0.0001)
+        assertEquals(1500.0, item.quantityToPurchase, 0.0001)
+        assertEquals(2L, item.purchaseCount)
+        assertEquals(2.0, item.purchasedQuantity, 0.0001)
+        assertEquals(12000.0, result.totalCostCentavos, 0.0001)
     }
 
     @Test
-    fun sufficientPantryStockRequiresNoPurchase() {
-        val rice = ingredient(
-            id = "rice",
-            name = "Rice",
-            price = 6000,
-            priceQuantity = 1.0,
-            priceUnit = MeasurementUnit.KILOGRAM,
-            purchaseQuantity = 1.0,
-            purchaseUnit = MeasurementUnit.KILOGRAM
-        )
-
-        val result = GroceryPurchaseCalculatorUseCase.calculate(
-            consolidatedIngredients = listOf(
-                ConsolidatedIngredient(
-                    ingredientId = "rice",
-                    quantity = 1000.0,
-                    unit = MeasurementUnit.GRAM
-                )
-            ),
-            ingredientCatalog = listOf(rice),
-            pantryStock = listOf(
-                PantryStock(
-                    ingredientId = "rice",
-                    quantity = 1.0,
-                    unit = MeasurementUnit.KILOGRAM
-                )
-            )
-        )
-
-        assertNotNull(result)
-
-        val item = result!!.items.first()
-
-        assertEquals(1000.0, item.requiredQuantity, 0.0001)
-        assertEquals(1000.0, item.availableQuantity, 0.0001)
-        assertEquals(0.0, item.quantityToPurchase, 0.0001)
-        assertEquals(0L, item.purchaseCount)
-        assertEquals(0.0, item.purchasedQuantity, 0.0001)
-        assertEquals(0.0, result.totalCostCentavos, 0.0001)
-    }
-
-    @Test
-    fun excessPantryStockDoesNotCreateNegativePurchaseRequirement() {
-        val eggs = ingredient(
-            id = "egg",
-            name = "Egg",
-            price = 1200,
-            priceQuantity = 1.0,
-            priceUnit = MeasurementUnit.PIECE,
-            purchaseQuantity = 1.0,
-            purchaseUnit = MeasurementUnit.PIECE
-        )
-
-        val result = GroceryPurchaseCalculatorUseCase.calculate(
-            consolidatedIngredients = listOf(
-                ConsolidatedIngredient(
-                    ingredientId = "egg",
-                    quantity = 5.0,
-                    unit = MeasurementUnit.PIECE
-                )
-            ),
-            ingredientCatalog = listOf(eggs),
-            pantryStock = listOf(
-                PantryStock(
-                    ingredientId = "egg",
-                    quantity = 10.0,
-                    unit = MeasurementUnit.PIECE
-                )
-            )
-        )
-
-        assertNotNull(result)
-
-        val item = result!!.items.first()
-
-        assertEquals(5.0, item.requiredQuantity, 0.0001)
-        assertEquals(10.0, item.availableQuantity, 0.0001)
-        assertEquals(0.0, item.quantityToPurchase, 0.0001)
-        assertEquals(0L, item.purchaseCount)
-        assertEquals(0.0, result.totalCostCentavos, 0.0001)
-    }
-
-    @Test
-    fun convertsPantryStockFromLitersToMilliliters() {
+    fun purchasesFullOilRequirementWithoutPantryDeduction() {
         val oil = ingredient(
             id = "cooking-oil",
             name = "Cooking Oil",
@@ -379,14 +269,7 @@ class GroceryPurchaseCalculatorUseCaseTest {
                     unit = MeasurementUnit.MILLILITER
                 )
             ),
-            ingredientCatalog = listOf(oil),
-            pantryStock = listOf(
-                PantryStock(
-                    ingredientId = "cooking-oil",
-                    quantity = 0.5,
-                    unit = MeasurementUnit.LITER
-                )
-            )
+            ingredientCatalog = listOf(oil)
         )
 
         assertNotNull(result)
@@ -394,9 +277,28 @@ class GroceryPurchaseCalculatorUseCaseTest {
         val item = result!!.items.first()
 
         assertEquals(750.0, item.requiredQuantity, 0.0001)
-        assertEquals(500.0, item.availableQuantity, 0.0001)
-        assertEquals(250.0, item.quantityToPurchase, 0.0001)
+        assertEquals(750.0, item.quantityToPurchase, 0.0001)
         assertEquals(1L, item.purchaseCount)
+        assertEquals(1.0, item.purchasedQuantity, 0.0001)
         assertEquals(10000.0, result.totalCostCentavos, 0.0001)
     }
+
+    private fun ingredient(
+        id: String,
+        name: String,
+        price: Long,
+        priceQuantity: Double,
+        priceUnit: MeasurementUnit,
+        purchaseQuantity: Double,
+        purchaseUnit: MeasurementUnit
+    ) = Ingredient(
+        id = id,
+        name = name,
+        defaultUnit = priceUnit,
+        estimatedPriceCentavos = price,
+        priceQuantity = priceQuantity,
+        priceUnit = priceUnit,
+        purchaseQuantity = purchaseQuantity,
+        purchaseUnit = purchaseUnit
+    )
 }

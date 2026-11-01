@@ -1,8 +1,8 @@
+
 package com.example.kaintayo.domain.usecase
 
 import com.example.kaintayo.domain.model.Ingredient
 import com.example.kaintayo.domain.model.MealPlanGroceryEstimate
-import com.example.kaintayo.domain.model.PantryStock
 import com.example.kaintayo.domain.model.Recipe
 import com.example.kaintayo.domain.model.RecipeIngredient
 
@@ -12,8 +12,7 @@ object MealPlanGroceryEstimateUseCase {
         recipes: List<Recipe>,
         targetServings: Int,
         ingredientCatalog: List<Ingredient>,
-        budgetCentavos: Long,
-        pantryStock: List<PantryStock> = emptyList()
+        budgetCentavos: Long
     ): MealPlanGroceryEstimate? {
 
         if (recipes.isEmpty() || targetServings <= 0 || budgetCentavos < 0L) {
@@ -39,20 +38,18 @@ object MealPlanGroceryEstimateUseCase {
             ) ?: return null
 
         // Calculate the proportional cost of all recipe consumption.
-        // This remains independent of pantry stock.
         val groceryCost = GroceryCostCalculatorUseCase.calculate(
             consolidatedIngredients,
             ingredientCatalog
         ) ?: return null
 
-        // Calculate whole-unit purchases after subtracting pantry stock.
+        // Calculate whole-unit purchases for all required ingredients.
         val purchaseEstimate = GroceryPurchaseCalculatorUseCase.calculate(
             consolidatedIngredients = consolidatedIngredients,
-            ingredientCatalog = ingredientCatalog,
-            pantryStock = pantryStock
+            ingredientCatalog = ingredientCatalog
         ) ?: return null
 
-        // Compare the adjusted purchase cost with the budget.
+        // Compare the complete purchase cost with the budget.
         val budgetAssessment = BudgetAssessmentUseCase.assess(
             budgetCentavos = budgetCentavos,
             estimatedCostCentavos = purchaseEstimate.totalCostCentavos

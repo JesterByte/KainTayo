@@ -1,10 +1,10 @@
+
 package com.example.kaintayo.domain.usecase
 
 import com.example.kaintayo.domain.model.Ingredient
 import com.example.kaintayo.domain.model.MealPlan
 import com.example.kaintayo.domain.model.MealPlanSlot
 import com.example.kaintayo.domain.model.MealType
-import com.example.kaintayo.domain.model.PantryStock
 import com.example.kaintayo.domain.model.Recipe
 import com.example.kaintayo.domain.model.RecipeIngredient
 import kotlin.math.roundToLong
@@ -39,8 +39,7 @@ object BudgetAwareMealPlanGeneratorUseCase {
         recipes: List<Recipe>,
         targetServings: Int,
         ingredientCatalog: List<Ingredient>,
-        budgetCentavos: Long,
-        pantryStock: List<PantryStock> = emptyList()
+        budgetCentavos: Long
     ): BudgetAwareMealPlanResult? {
 
         if (
@@ -67,7 +66,8 @@ object BudgetAwareMealPlanGeneratorUseCase {
                 .thenBy { it.mealType.ordinal }
         )
 
-        if (ingredientCatalog.map { it.id }.distinct().size !=
+        if (
+            ingredientCatalog.map { it.id }.distinct().size !=
             ingredientCatalog.size
         ) {
             return null
@@ -91,8 +91,7 @@ object BudgetAwareMealPlanGeneratorUseCase {
             // Ensure every recipe can be priced using the current catalog.
             GroceryPurchaseCalculatorUseCase.calculate(
                 consolidatedIngredients = consolidated,
-                ingredientCatalog = ingredientCatalog,
-                pantryStock = pantryStock
+                ingredientCatalog = ingredientCatalog
             ) ?: return null
 
             scaledIngredientsByRecipe[recipe.id] =
@@ -101,7 +100,9 @@ object BudgetAwareMealPlanGeneratorUseCase {
 
         val recipesByMealType = recipes
             .groupBy { it.mealType }
-            .mapValues { (_, items) -> items.sortedBy { it.id } }
+            .mapValues { (_, items) ->
+                items.sortedBy { it.id }
+            }
 
         var beam = listOf(
             Candidate(
@@ -113,9 +114,9 @@ object BudgetAwareMealPlanGeneratorUseCase {
             )
         )
 
-        for (slot in sortedSlots) {
+        for ((date, mealType) in sortedSlots) {
             val eligibleRecipes =
-                recipesByMealType[slot.mealType].orEmpty()
+                recipesByMealType[mealType].orEmpty()
 
             if (eligibleRecipes.isEmpty()) {
                 return null
@@ -123,22 +124,22 @@ object BudgetAwareMealPlanGeneratorUseCase {
 
             val nextCandidates = mutableListOf<Candidate>()
 
-            for (candidate in beam) {
+            for ((meals, recipeIds, recentRecipeIds, accumulatedIngredients1) in beam) {
                 val recentIds =
-                    candidate.recentRecipeIds[slot.mealType].orEmpty()
+                    recentRecipeIds[mealType].orEmpty()
 
-                for (recipe in eligibleRecipes) {
+                for ((id) in eligibleRecipes) {
                     // Enforce the cooldown separately for each meal type.
-                    if (recipe.id in recentIds) {
+                    if (id in recentIds) {
                         continue
                     }
 
                     val recipeIngredients =
-                        scaledIngredientsByRecipe[recipe.id]
+                        scaledIngredientsByRecipe[id]
                             ?: return null
 
                     val accumulatedIngredients =
-                        candidate.accumulatedIngredients +
+                        accumulatedIngredients1 +
                                 recipeIngredients
 
                     // Consolidate all ingredients accumulated across
@@ -149,12 +150,11 @@ object BudgetAwareMealPlanGeneratorUseCase {
                         ) ?: continue
 
                     // Calculate whole-package purchase cost for the
-                    // entire partial meal plan, not recipe by recipe.
+                    // entire partial meal plan.
                     val purchaseEstimate =
                         GroceryPurchaseCalculatorUseCase.calculate(
                             consolidatedIngredients = consolidated,
-                            ingredientCatalog = ingredientCatalog,
-                            pantryStock = pantryStock
+                            ingredientCatalog = ingredientCatalog
                         ) ?: continue
 
                     val newCost =
@@ -165,22 +165,22 @@ object BudgetAwareMealPlanGeneratorUseCase {
                     }
 
                     val newRecentIds =
-                        (recentIds + recipe.id).takeLast(
+                        (recentIds + id).takeLast(
                             RECENT_RECIPE_LIMIT
                         )
 
                     val newRecentMap =
-                        candidate.recentRecipeIds +
-                                (slot.mealType to newRecentIds)
+                        recentRecipeIds +
+                                (mealType to newRecentIds)
 
                     nextCandidates.add(
                         Candidate(
-                            meals = candidate.meals + MealPlan(
-                                date = slot.date,
-                                mealType = slot.mealType,
-                                recipeId = recipe.id
+                            meals = meals + MealPlan(
+                                date = date,
+                                mealType = mealType,
+                                recipeId = id
                             ),
-                            recipeIds = candidate.recipeIds + recipe.id,
+                            recipeIds = recipeIds + id,
                             recentRecipeIds = newRecentMap,
                             accumulatedIngredients =
                                 accumulatedIngredients,

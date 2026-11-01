@@ -1,3 +1,4 @@
+
 package com.example.kaintayo.data.local
 
 import android.content.Context
@@ -15,7 +16,7 @@ import org.robolectric.RobolectricTestRunner
 class DatabaseMigrationsTest {
 
     @Test
-    fun migrationsPreserveExistingDataAndCreatePantryWithCascadeDelete() {
+    fun migrationsPreserveExistingDataAndRemovePantryTable() {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
         val callback = object : SupportSQLiteOpenHelper.Callback(1) {
@@ -102,6 +103,47 @@ class DatabaseMigrationsTest {
             // Upgrade version 2 to version 3.
             DatabaseMigrations.MIGRATION_2_3.migrate(db)
 
+            // Confirm the version 3 migration created the Pantry table.
+            db.query(
+                """
+                SELECT COUNT(*)
+                FROM sqlite_master
+                WHERE type = 'table'
+                AND name = 'pantry_stock'
+                """
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(1, cursor.getInt(0))
+            }
+
+            // Insert existing Pantry data before upgrading to version 4.
+            db.execSQL(
+                """
+                INSERT INTO pantry_stock (
+                    ingredientId,
+                    quantity,
+                    unit
+                )
+                VALUES ('chicken', 500.0, 'GRAM')
+                """.trimIndent()
+            )
+
+            // Upgrade version 3 to version 4.
+            DatabaseMigrations.MIGRATION_3_4.migrate(db)
+
+            // The Pantry table must no longer exist.
+            db.query(
+                """
+                SELECT COUNT(*)
+                FROM sqlite_master
+                WHERE type = 'table'
+                AND name = 'pantry_stock'
+                """
+            ).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+
             // Existing ingredient data and purchase information survive.
             db.query(
                 """
@@ -132,45 +174,6 @@ class DatabaseMigrationsTest {
             ).use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals(1, cursor.getInt(0))
-            }
-
-            // The new pantry table starts empty.
-            db.query(
-                "SELECT COUNT(*) FROM pantry_stock"
-            ).use { cursor ->
-                assertTrue(cursor.moveToFirst())
-                assertEquals(0, cursor.getInt(0))
-            }
-
-            // Pantry stock can reference an existing ingredient.
-            db.execSQL(
-                """
-                INSERT INTO pantry_stock (
-                    ingredientId,
-                    quantity,
-                    unit
-                )
-                VALUES ('chicken', 500.0, 'GRAM')
-                """.trimIndent()
-            )
-
-            db.query(
-                "SELECT COUNT(*) FROM pantry_stock"
-            ).use { cursor ->
-                assertTrue(cursor.moveToFirst())
-                assertEquals(1, cursor.getInt(0))
-            }
-
-            // Deleting an ingredient automatically deletes its pantry stock.
-            db.execSQL(
-                "DELETE FROM ingredients WHERE id = 'chicken'"
-            )
-
-            db.query(
-                "SELECT COUNT(*) FROM pantry_stock"
-            ).use { cursor ->
-                assertTrue(cursor.moveToFirst())
-                assertEquals(0, cursor.getInt(0))
             }
 
         } finally {

@@ -1,3 +1,4 @@
+
 package com.example.kaintayo.domain.usecase
 
 import com.example.kaintayo.core.time.PaydayCycle
@@ -5,7 +6,6 @@ import com.example.kaintayo.core.time.PaydayCycleCalculator
 import com.example.kaintayo.domain.model.MealPlan
 import com.example.kaintayo.domain.repository.IngredientRepository
 import com.example.kaintayo.domain.repository.MealPlanRepository
-import com.example.kaintayo.domain.repository.PantryStockRepository
 import com.example.kaintayo.domain.repository.RecipeRepository
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
@@ -27,8 +27,7 @@ data class PaydayMealPlanGenerationResult(
 class GeneratePaydayMealPlanUseCase(
     private val ingredientRepository: IngredientRepository,
     private val recipeRepository: RecipeRepository,
-    private val mealPlanRepository: MealPlanRepository,
-    private val pantryStockRepository: PantryStockRepository
+    private val mealPlanRepository: MealPlanRepository
 ) {
 
     suspend operator fun invoke(
@@ -56,17 +55,12 @@ class GeneratePaydayMealPlanUseCase(
             .getAllRecipes()
             .first()
 
-        val pantryStock = pantryStockRepository
-            .getAllPantryStock()
-            .first()
-
         val optimizedPlan = BudgetAwareMealPlanGeneratorUseCase.generate(
             slots = slots,
             recipes = recipes,
             targetServings = targetServings,
             ingredientCatalog = ingredients,
-            budgetCentavos = budgetCentavos,
-            pantryStock = pantryStock
+            budgetCentavos = budgetCentavos
         )
 
         if (optimizedPlan == null) {
